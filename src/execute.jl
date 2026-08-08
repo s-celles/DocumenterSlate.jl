@@ -66,6 +66,12 @@ notebook cell (REQ-EXE-03/04/05).
 - `cell_id::String`: the cell's persistent id (`KaimonSlate.ReportEngine.Cell.id`).
 - `kind::Symbol`: `:md` or `:code`. `KaimonSlate`'s `WEB` cell kind is treated as `:code`
   (it evaluates identically — see `widgets.jl`'s own comment on `WEB` cells).
+- `source::String`: the cell's source text, exactly as `KaimonSlate.parse_report` returns
+  it (for `:md` cells, already unwrapped from the `@md\"\"\"…\"\"\"` runnable skin — see
+  `KaimonSlate.jl/src/engine.jl`'s `_unwrap_md`). Carried through for downstream rendering
+  (M1.10) so it doesn't need to re-parse the notebook file.
+- `flags::Set{Symbol}`: the cell's role/UI tags (`KaimonSlate.ReportEngine.Cell.flags`,
+  e.g. `:title`, `:hidecode`) — also carried through for M1.10 rendering.
 - `stdout_text::String`: captured standard output produced while evaluating the cell;
   always `""` for a `:md` cell.
 - `value::Any`: the cell's last top-level expression value (mirrors `include`); `nothing`
@@ -81,6 +87,8 @@ notebook cell (REQ-EXE-03/04/05).
 struct CellResult
     cell_id::String
     kind::Symbol
+    source::String
+    flags::Set{Symbol}
     stdout_text::String
     value::Any
     error::Union{Nothing,Exception}
@@ -191,7 +199,8 @@ function _execute_cells(report, notebook_path::AbstractString, fail_on_error::Bo
     results = CellResult[]
     for (idx, cell) in enumerate(report.cells)
         if cell.kind == KaimonSlate.MARKDOWN
-            push!(results, CellResult(cell.id, :md, "", nothing, nothing, nothing))
+            push!(results, CellResult(cell.id, :md, cell.source, cell.flags, "", nothing,
+                                       nothing, nothing))
             continue
         end
 
@@ -204,12 +213,13 @@ function _execute_cells(report, notebook_path::AbstractString, fail_on_error::Bo
                     first(_format_backtrace_lines(bt), 20),
                 ))
             end
-            push!(results, CellResult(cell.id, :code, out, nothing, err,
-                                       join(_format_backtrace_lines(bt), '\n')))
+            push!(results, CellResult(cell.id, :code, cell.source, cell.flags, out, nothing,
+                                       err, join(_format_backtrace_lines(bt), '\n')))
             continue
         end
 
-        push!(results, CellResult(cell.id, :code, out, value, nothing, nothing))
+        push!(results, CellResult(cell.id, :code, cell.source, cell.flags, out, value,
+                                   nothing, nothing))
         _apply_bind_override!(mod, cell, binds)
     end
 
