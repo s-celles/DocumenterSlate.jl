@@ -1,0 +1,40 @@
+# gitallow pattern: everything is ignored by default; only explicitly
+# allowed file types/paths are tracked. Add a new `!` rule below when a
+# new source file type or directory is introduced.
+
+# 1) Ignore everything...
+*
+# ...but let git look inside directories to find allowed files
+!*/
+
+# 2) Allow source/config file types
+!*.jl
+!*.toml
+!*.md
+!*.yml
+!*.yaml
+!.gitignore
+!.gitattributes
+!justfile
+!LICENSE
+
+# 3) Re-ignore generated/build artifacts and local scratch state
+#    (must come after the allow rules above so they take precedence)
+**/Manifest.toml
+/docs/build/
+/docs/src/notebooks/
+/docs/slate_cache/
+/docs/site/
+*.cov
+*.jl.cov
+*.jl.*.cov
+*.jl.mem
+/deps/deps.jl
+
+# 4) Never commit local agent/spec tooling (see CLAUDE.md)
+/CLAUDE.md
+/AGENTS.md
+/spec.md
+/specs/
+/.claude/
+/.specify/
