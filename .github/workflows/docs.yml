@@ -31,6 +31,24 @@ jobs:
     permissions:
       contents: read
     steps:
+      # REQ-SEC-04: this is the job that executes untrusted notebook code (T1/T5).
+      # `egress-policy: audit` (not `block`) deliberately -- step-security's own
+      # documented adoption path is audit first, block once a real run's baseline
+      # confirms the exact endpoint set; a security review of an earlier `block` attempt
+      # here found the obvious allow-list guess was wrong in practice (a dead hostname,
+      # and missing the actual redirect targets Pkg's registry client follows through
+      # pkg.julialang.org, which vary by which regional mirror a given runner reaches).
+      # Shipping a broken `block` list would fail every render-notebooks run outright --
+      # worse than the gap it closes. `audit` still gives real monitoring value (baseline
+      # + anomaly detection + StepSecurity's always-on malicious-domain block list, per
+      # harden-runner's own docs) today. Upgrade to `block` with a real
+      # `allowed-endpoints` list once a live run's insights/logs confirm it, not before.
+      # Pinned to a commit SHA (not a floating tag) per standard third-party-action
+      # supply-chain practice; SHA corresponds to the v2.20.1 release, confirmed against
+      # the real GitHub API, not guessed.
+      - uses: step-security/harden-runner@b09bb98e06d4d774595224525879c09bc6e98c40 # v2.20.1
+        with:
+          egress-policy: audit
       - uses: actions/checkout@v4
       - uses: julia-actions/setup-julia@v2
         with:
@@ -67,6 +85,15 @@ jobs:
     permissions:
       contents: write
     steps:
+      # Defense-in-depth even though this job never executes notebook code (execution =
+      # :never) -- restricts what a compromised/malicious first-party Action in this job's
+      # own dependency chain could reach, and what `deploydocs`' git push can talk to.
+      # `audit`, not `block`: see render-notebooks' step above for why (a review of an
+      # earlier `block` attempt found the allow-list guess didn't actually match Pkg's
+      # real registry redirect chain) -- same reasoning applies here.
+      - uses: step-security/harden-runner@b09bb98e06d4d774595224525879c09bc6e98c40 # v2.20.1
+        with:
+          egress-policy: audit
       - uses: actions/checkout@v4
       - uses: julia-actions/setup-julia@v2
         with:

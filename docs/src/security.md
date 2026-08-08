@@ -58,19 +58,23 @@ layer: `render-notebooks`' `env:` block is an explicit, minimal allowlist, not t
 full environment. If you write your own workflow, don't assume the library protects secrets
 from a notebook's own `ENV[...]` calls — your workflow's `env:` block is what does.
 
-## Network egress (REQ-SEC-04) — not yet implemented
+## Network egress (REQ-SEC-04) — monitored, not yet blocked
 
-**`render-notebooks` currently runs with unrestricted network egress.** `JULIA_PKG_OFFLINE`
-is explicitly set to `"false"` (the job needs to reach the Julia package registry), and
-nothing in `.github/workflows/docs.yml` today restricts *what else* a notebook or its
-dependencies could reach over the network while that job runs.
-[`step-security/harden-runner`](https://github.com/step-security/harden-runner) with
-`egress-policy: block` and an explicit allow-list is planned to close this — a real,
-scoped CI-infra control, not a `SlateBuildOptions` option (there is no `network = :deny`
-field on [`SlateBuildOptions`](@ref); spec.md §7's sketch, `allow_remote`, is not
-implemented either — both tracked as gaps, not silently assumed done). Until that lands,
-treat `render-notebooks`' network surface as open, same as any other CI job that installs
-packages from a registry.
+Both jobs run behind [`step-security/harden-runner`](https://github.com/step-security/harden-runner)
+(pinned to a commit SHA, not a floating tag) in **`egress-policy: audit`** mode — every
+outbound connection is logged and checked against StepSecurity's always-on malicious-domain
+list, but nothing legitimate is blocked yet. This is deliberately the tool's own recommended
+starting point, not a shortcut: an earlier attempt at `egress-policy: block` with a guessed
+`allowed-endpoints` list was caught by review before merging — the guess missed the actual
+redirect chain Julia's package client follows through `pkg.julialang.org` (a region-specific
+mirror, then a separate storage backend), which would have made every `render-notebooks` run
+fail outright once merged. Shipping a broken block-list is worse than the gap it closes.
+
+Upgrading to `block` is the natural next step, once a real workflow run's harden-runner
+insights confirm the exact endpoint set actually used — not before. This is a CI-infra
+control, not a `SlateBuildOptions` option — there is no `network = :deny` field on
+[`SlateBuildOptions`](@ref) (spec.md §7's sketch, `allow_remote`, is not implemented either;
+tracked as a gap, not silently assumed done).
 
 ## Content escaping and path traversal (REQ-SEC-05/06)
 
