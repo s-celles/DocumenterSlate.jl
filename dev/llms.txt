@@ -1,0 +1,8 @@
+# DocumenterSlate.jl
+> Publishes KaimonSlate.jl reactive notebooks as native Documenter.jl pages in CI.
+
+## Documentation Sections
+- [Home](index.html)
+- [Notebooks > Hello, DocumenterSlate](notebooks/hello.html)
+- [Notebooks > Hiding a cell's source](notebooks/hidden_code_demo.html)
+- [Security](security.html)
