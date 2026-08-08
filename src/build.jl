@@ -240,14 +240,16 @@ produced it* (REQ-TRUST-02's `PROVENANCE.toml`/CI run ID, or REQ-TRUST-03's buil
 attestation) — a stronger hash of the same public inputs cannot fix it. Tracked for M3
 (before the two-job workflow is considered to hold end-to-end) / M3b, not fixed here.
 
-# Known gap: spec.md §9's reference workflow doesn't restore the cache for `:never`
-The example `build-and-deploy` job only restores `docs/src/notebooks` via
-`actions/download-artifact` — it never restores `docs/slate_cache`. As written, that job's
-`execution = :never` call would hit this function's `ArgumentError` on every run, since
-`options.cache_dir` would always be empty. A real M3 workflow needs to either upload/
-download `slate_cache` too, or use `actions/cache` (already sketched for the render job) in
-the deploy job as well. Noted here so it isn't rediscovered the hard way when M3 ships an
-actual `.github/workflows/docs.yml`.
+# Historical note: spec.md §9's illustrative example workflow had this bug
+spec.md §9's *illustrative* reference workflow (non-normative prose, not shipped code) only
+restored `docs/src/notebooks` via `actions/download-artifact` — it never restored
+`docs/slate_cache`. As written, that example's `execution = :never` call would have hit
+this function's `ArgumentError` on every run, since `options.cache_dir` would always be
+empty. **Fixed in the actual shipped workflow**: `.github/workflows/docs.yml` uploads
+`docs/slate_cache` as an artifact in `render-notebooks` and downloads that same artifact in
+`build-and-deploy` before `docs/make.jl` runs — `execution = :never` there has a genuinely
+populated cache to read. This note stays only as the historical record of the bug spec.md's
+own prose sketch had; it does not describe a gap in this repository's real workflow.
 
 # Effective `show_code`
 A cell's source is shown only when **both** `output_options.show_code` (the site-wide

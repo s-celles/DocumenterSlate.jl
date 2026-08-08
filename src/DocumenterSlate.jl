@@ -45,7 +45,7 @@ See `upstream-bugs.md` (repository root, not shipped in the package) for what wa
 confirmed against upstream source versus what is still open with the KaimonSlate
 maintainer.
 
-# Public API (M1–M2)
+# Public API (M1–M3)
 
 [`SlateBuildOptions`](@ref), [`SlateOutputOptions`](@ref), [`build_slates`](@ref),
 [`discover_notebooks`](@ref), [`resolve_notebook_project`](@ref),
@@ -54,7 +54,8 @@ maintainer.
 [`TextualReplayExporter`](@ref), [`execute_notebook`](@ref),
 [`ExecutedNotebook`](@ref), [`CellResult`](@ref), [`SlateExecutionError`](@ref),
 [`SlateExecutionTimeoutError`](@ref), [`cell_to_markdown`](@ref),
-[`extract_assets!`](@ref), [`build_pages`](@ref), [`SlateBuildResult`](@ref).
+[`extract_assets!`](@ref), [`build_pages`](@ref), [`SlateBuildResult`](@ref),
+[`collect_build_statuses`](@ref), [`write_github_step_summary`](@ref).
 
 The composite cache (`options.cache_dir`, `options.execution`) and parallel execution
 (`options.nworkers`) internals (`src/cache.jl`) are not exported — they're consumed
@@ -68,9 +69,11 @@ entry. This doesn't weaken REQ-SEC-03 (no code execution in a privileged job), b
 mean T6 (third-party content published under the repo's identity) isn't mitigated yet.
 Tracked for M3/M3b (REQ-TRUST-02/03), not fixed here.
 
-Not yet implemented: the `SlatePlugin <: Documenter.Plugin` / `@slate` expander (N1), CI
-security hardening and the two-job workflow (M3), artifact distribution (M3b), and the
-`:embed`/`:iframe` output formats (M4) — see spec.md §14 for the full milestone plan.
+Not yet implemented: the `SlatePlugin <: Documenter.Plugin` / `@slate` expander (N1),
+artifact distribution (M3b), and the `:embed`/`:iframe` output formats (M4) — see spec.md
+§14 for the full milestone plan. CI security hardening and the two-job workflow (M3) are
+implemented (`.github/workflows/docs.yml`, `docs/src/security.md`); the cache-trust known
+limitation above is what's still open from that milestone, not the workflow itself.
 Per-notebook environment isolation (REQ-EXE-02 — each notebook running in its own pinned
 project rather than the calling process's) is also not implemented despite
 [`resolve_notebook_project`](@ref) existing; it's currently consumed only as a cache-key
