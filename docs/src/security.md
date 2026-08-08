@@ -58,13 +58,19 @@ layer: `render-notebooks`' `env:` block is an explicit, minimal allowlist, not t
 full environment. If you write your own workflow, don't assume the library protects secrets
 from a notebook's own `ENV[...]` calls — your workflow's `env:` block is what does.
 
-## Network egress (REQ-SEC-04)
+## Network egress (REQ-SEC-04) — not yet implemented
 
-Both jobs run behind [`step-security/harden-runner`](https://github.com/step-security/harden-runner)
-with `egress-policy: block` and an explicit allow-list. Like REQ-SEC-02, this is a CI-infra
-control, not a `SlateBuildOptions` option — there is no `network = :deny` field on
-[`SlateBuildOptions`](@ref) (spec.md §7's sketch, `allow_remote`, is not implemented; tracked
-as a gap, not silently assumed done).
+**`render-notebooks` currently runs with unrestricted network egress.** `JULIA_PKG_OFFLINE`
+is explicitly set to `"false"` (the job needs to reach the Julia package registry), and
+nothing in `.github/workflows/docs.yml` today restricts *what else* a notebook or its
+dependencies could reach over the network while that job runs.
+[`step-security/harden-runner`](https://github.com/step-security/harden-runner) with
+`egress-policy: block` and an explicit allow-list is planned to close this — a real,
+scoped CI-infra control, not a `SlateBuildOptions` option (there is no `network = :deny`
+field on [`SlateBuildOptions`](@ref); spec.md §7's sketch, `allow_remote`, is not
+implemented either — both tracked as gaps, not silently assumed done). Until that lands,
+treat `render-notebooks`' network surface as open, same as any other CI job that installs
+packages from a registry.
 
 ## Content escaping and path traversal (REQ-SEC-05/06)
 

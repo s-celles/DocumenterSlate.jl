@@ -1,0 +1,88 @@
+name: Docs
+on:
+  push:
+    branches:
+      - main
+    tags: ['*']
+  pull_request:
+  workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+env:
+  # Single source of truth for both jobs -- the two must never drift apart, since
+  # DocumenterSlate's own composite cache key (ADR-004) includes the running Julia
+  # version: a mismatch here would make render-notebooks' cache permanently unusable to
+  # build-and-deploy, surfacing as a REQ-EXE-10 "cache miss" error, not a helpful one
+  # about the version pin itself.
+  JULIA_VERSION: '1.12'
+jobs:
+  # Executes untrusted notebook code (spec.md §12 T1). Deliberately triggered on plain
+  # `pull_request`, never `pull_request_target` -- the latter would run this job's
+  # workflow file from the base branch but check out and execute the PR's (possibly
+  # malicious fork) code with access to the base repo's secrets context, defeating the
+  # entire two-job split this workflow exists to provide. Plain `pull_request` from a
+  # fork gets a read-only GITHUB_TOKEN and no repository secrets by GitHub's own platform
+  # behavior (REQ-SEC-03) -- this workflow relies on that guarantee, it doesn't
+  # reimplement it.
+  render-notebooks:
+    name: Render notebooks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: ${{ env.JULIA_VERSION }}
+      - uses: actions/cache@v4
+        with:
+          path: docs/slate_cache
+          key: slate-${{ runner.os }}-${{ env.JULIA_VERSION }}-${{ hashFiles('docs/notebooks/**/*.jl', 'docs/notebooks/**/Project.toml') }}
+          restore-keys: slate-${{ runner.os }}-${{ env.JULIA_VERSION }}-
+      - name: Render notebooks
+        # Explicit allowlist (REQ-SEC-02), not the runner's full ambient environment.
+        # KAIMONSLATE_AGENT is a placeholder for defense-in-depth: no upstream disable
+        # flag was found to exist (see upstream-bugs.md §9), and TextualReplayExporter
+        # never reaches the agent regardless of this variable's value (REQ-SEC-01 holds
+        # by construction for the current backend) -- kept here so a future HubExporter
+        # backend has a wired-up place to actually honor it, not introduced silently later.
+        env:
+          JULIA_PKG_OFFLINE: "false"
+          KAIMONSLATE_AGENT: "off"
+        run: julia --project=docs docs/render.jl
+      - uses: actions/upload-artifact@v4
+        with:
+          name: slate-cache
+          path: docs/slate_cache
+          retention-days: 1
+
+  # Never executes notebook code (execution = :never, REQ-EXE-10, enforced in
+  # `_build_one_notebook` -- a cache miss raises, it does not fall back to executing).
+  # This is the only job with `DOCUMENTER_KEY` in scope.
+  build-and-deploy:
+    name: Build and deploy
+    needs: render-notebooks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: ${{ env.JULIA_VERSION }}
+      # An artifact, not `actions/cache` here: this must be *exactly* what
+      # render-notebooks just produced in this same run, not a key-matched (and possibly
+      # stale, possibly absent) cache entry from some earlier run -- artifacts are scoped
+      # to the run and guaranteed available to a `needs:`-dependent job, which is the
+      # actual guarantee this job needs. If the artifact is somehow missing, this step
+      # fails outright rather than silently proceeding with an empty `docs/slate_cache`.
+      - uses: actions/download-artifact@v4
+        with:
+          name: slate-cache
+          path: docs/slate_cache
+      - name: Build and deploy docs
+        env:
+          DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: julia --project=docs docs/make.jl
