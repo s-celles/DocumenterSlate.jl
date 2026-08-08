@@ -1,0 +1,7 @@
+[[notebook]]
+path = "hello.jl"
+order = 1
+
+[[notebook]]
+path = "hidden_code_demo.jl"
+order = 2
