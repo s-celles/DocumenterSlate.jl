@@ -28,9 +28,15 @@ see `upstream-bugs.md` §7). This is the M1 default exporter: it has zero depend
 
 # Keywords
 - `timeout::Int = 900`: maximum wall-clock time, in seconds, allowed for a single
-  notebook's execution (REQ-EXE-06) before the worker is killed and the build fails with
-  an explicit diagnostic. Default of 900s (15 minutes) matches spec §5's original
-  `HubExporter` sketch, applied here to the current default exporter. Must be positive.
+  notebook's execution (REQ-EXE-06) before `execute_notebook` raises
+  [`SlateExecutionTimeoutError`](@ref). Default of 900s (15 minutes) matches spec §5's
+  original `HubExporter` sketch, applied here to the current default exporter. Must be
+  positive.
+
+  Note: `TextualReplayExporter` executes in-process, so this is *detection*, not a hard
+  kill — a non-yielding, CPU-bound cell keeps running in the background after the error is
+  raised to the caller. See [`execute_notebook`](@ref)'s docstring for the exact boundary
+  and why a true kill needs an out-of-process backend (`HubExporter`, M2+).
 
 Execution behavior (actually invoking `KaimonSlate.standalone!` and enforcing `timeout`)
 is implemented separately; this type only carries the configuration.

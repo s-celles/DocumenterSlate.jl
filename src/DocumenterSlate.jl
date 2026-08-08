@@ -8,8 +8,10 @@ pages in CI.
 Currently exposes [`SlateBuildOptions`](@ref), [`SlateOutputOptions`](@ref),
 [`discover_notebooks`](@ref), [`resolve_notebook_project`](@ref),
 [`NotebookProjectResolution`](@ref), [`resolve_notebook_meta`](@ref),
-[`NotebookMeta`](@ref), [`AbstractSlateExporter`](@ref) and
-[`TextualReplayExporter`](@ref); the `build_slates` orchestration entry point is not
+[`NotebookMeta`](@ref), [`AbstractSlateExporter`](@ref),
+[`TextualReplayExporter`](@ref), [`execute_notebook`](@ref),
+[`ExecutedNotebook`](@ref), [`CellResult`](@ref), [`SlateExecutionError`](@ref) and
+[`SlateExecutionTimeoutError`](@ref); the `build_slates` orchestration entry point is not
 implemented yet.
 """
 module DocumenterSlate
@@ -22,10 +24,13 @@ include("discovery.jl")
 include("notebook_env.jl")
 include("frontmatter.jl")
 include("exporters.jl")
+include("execute.jl")
 
 export SlateBuildOptions, SlateOutputOptions, discover_notebooks,
        resolve_notebook_project, NotebookProjectResolution,
        resolve_notebook_meta, NotebookMeta,
-       AbstractSlateExporter, TextualReplayExporter
+       AbstractSlateExporter, TextualReplayExporter,
+       execute_notebook, ExecutedNotebook, CellResult,
+       SlateExecutionError, SlateExecutionTimeoutError
 
 end
