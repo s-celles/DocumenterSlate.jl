@@ -136,3 +136,36 @@ opinion on (`order`, `skip`, `show_code`, `binds`), use the already-spec'd `docs
 Both decisions are judgment calls inferred from reading KaimonSlate's source, not confirmed
 upstream — flag to @kahliburke (spec §15 Q7/Q8 territory) before treating either as final for a
 public release; they are load-bearing enough for M1 implementation to proceed on now.
+
+## 9. REQ-SEC-01 (AI agent off in CI) — resolved for the current backend, not for future ones
+
+Spec §15 Q5 asked how KaimonSlate's agent is disabled and whether that's verifiable from the
+calling process. No upstream disable flag/env var was found anywhere in the source (confirmed
+again during M3 planning). However, for `TextualReplayExporter` (the only execution backend
+implemented through M2), the question resolves differently: the agent is architecturally
+unreachable, not merely "assumed off."
+
+Confirmed by reading `KaimonSlate.jl/src/KaimonSlate.jl` directly (M3 planning session):
+
+- The hub/agent machinery is gated behind `_hub()` (`KaimonSlate.jl:174-181`), which lazily
+  starts `NotebookServer.start_hub(...)` on first call and is only reachable from the live/
+  interactive server code paths (`KaimonSlate.jl:535,1518,1813,1899` — all inside
+  `NotebookServer`-facing functions like remote publish, agent tool dispatch, and the hub's own
+  boot sequence).
+- `__init__` (`KaimonSlate.jl:130-139`) only self-registers as a Kaimon extension (which is what
+  exposes the agent's tool-calling surface) when `haskey(ENV, "KAIMON_EXTENSION")` is true — never
+  true for a plain `using KaimonSlate` / `import KaimonSlate` from a Julia script or CI job.
+- `KaimonSlate.standalone!` (`widgets.jl:1095-1105`, the sole entry point `TextualReplayExporter`
+  calls into) does nothing but call `_populate_notebook_ns!` with plain function objects
+  (`echart`, `EChart`, `slate_table`, …) and set a `const __slate_standalone = true` marker. It
+  never references `_hub`, `NotebookServer`, or anything agent-related. `DocumenterSlate.jl`'s
+  only other calls into KaimonSlate (`parse_report`, the `MARKDOWN` enum value) are pure parsing,
+  same story.
+
+**Conclusion**: for `TextualReplayExporter`, REQ-SEC-01 holds *by construction* — there is no
+code path from `execute_notebook` that could start the hub or reach the agent, regardless of any
+CI configuration. This is stronger than a disable flag (nothing to misconfigure), but it is
+**specific to this backend**. It does **not** resolve REQ-SEC-01 for a future `HubExporter`
+(M4+, spec ADR-003's third tier) — that backend drives the hub directly, where the agent *is*
+reachable, and no upstream disable mechanism has been found. Re-open this question before any
+hub-based exporter ships.
