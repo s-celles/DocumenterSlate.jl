@@ -16,7 +16,8 @@
         """)
 
         outdir = joinpath(root, "out")
-        opts = SlateBuildOptions(; source = source, output = outdir, slate_toml = slate_toml)
+        opts = SlateBuildOptions(; source = source, output = outdir, slate_toml = slate_toml,
+                                  cache_dir = joinpath(root, "cache"))
         result = build_slates(opts)
 
         @test result isa SlateBuildResult
@@ -45,7 +46,8 @@ end
         cp(joinpath(@__DIR__, "fixtures", "notebooks", "broken_cell.jl"),
            joinpath(source, "broken_cell.jl"))
 
-        opts = SlateBuildOptions(; source = source, output = joinpath(root, "out"))
+        opts = SlateBuildOptions(; source = source, output = joinpath(root, "out"),
+                                  cache_dir = joinpath(root, "cache"))
         err = try
             build_slates(opts)
             nothing
@@ -68,7 +70,8 @@ end
            joinpath(source, "broken_cell.jl"))
 
         outdir = joinpath(root, "out")
-        opts = SlateBuildOptions(; source = source, output = outdir, fail_on_error = false)
+        opts = SlateBuildOptions(; source = source, output = outdir, fail_on_error = false,
+                                  cache_dir = joinpath(root, "cache"))
         result = build_slates(opts)
 
         @test length(result.pages) == 1
@@ -96,7 +99,8 @@ end
         """)
 
         outdir = joinpath(root, "out")
-        opts = SlateBuildOptions(; source = source, output = outdir, slate_toml = slate_toml)
+        opts = SlateBuildOptions(; source = source, output = outdir, slate_toml = slate_toml,
+                                  cache_dir = joinpath(root, "cache"))
         result = build_slates(opts)
 
         @test length(result.pages) == 1
@@ -228,5 +232,63 @@ end
 
         opts = SlateBuildOptions(; source = source, output = joinpath(root, "out"))
         @test_throws ArgumentError build_slates(opts, SlateOutputOptions(; format = :iframe))
+    end
+end
+
+@testitem "build_slates: nworkers=2 produces the same output as nworkers=1 (REQ-EXE-07)" begin
+    using DocumenterSlate
+    using Distributed
+    using Test
+
+    mktempdir() do root
+        source = joinpath(root, "notebooks")
+        mkpath(source)
+        for name in ("simple.jl", "with_roles.jl", "with_bind.jl")
+            cp(joinpath(@__DIR__, "fixtures", "notebooks", name), joinpath(source, name))
+        end
+
+        opts_seq = SlateBuildOptions(; source = source, output = joinpath(root, "out_seq"),
+                                      cache_dir = joinpath(root, "cache_seq"))
+        result_seq = build_slates(opts_seq)
+
+        opts_par = SlateBuildOptions(; source = source, output = joinpath(root, "out_par"),
+                                      cache_dir = joinpath(root, "cache_par"), nworkers = 2)
+        nprocs_before = nprocs()
+        result_par = build_slates(opts_par)
+
+        @test nprocs() == nprocs_before   # no leaked workers
+        @test Set(result_seq.pages) == Set(result_par.pages)
+        for (_, relpath) in result_seq.pages
+            @test read(joinpath(root, "out_seq", relpath), String) ==
+                  read(joinpath(root, "out_par", relpath), String)
+        end
+    end
+end
+
+@testitem "build_slates: nworkers=2 with a failing notebook still raises SlateExecutionError, not RemoteException, and cleans up workers" begin
+    using DocumenterSlate
+    using Distributed
+    using Test
+
+    mktempdir() do root
+        source = joinpath(root, "notebooks")
+        mkpath(source)
+        cp(joinpath(@__DIR__, "fixtures", "notebooks", "simple.jl"), joinpath(source, "simple.jl"))
+        cp(joinpath(@__DIR__, "fixtures", "notebooks", "broken_cell.jl"),
+           joinpath(source, "broken_cell.jl"))
+
+        opts = SlateBuildOptions(; source = source, output = joinpath(root, "out"), nworkers = 2,
+                                  cache_dir = joinpath(root, "cache"))
+        nprocs_before = nprocs()
+        err = try
+            build_slates(opts)
+            nothing
+        catch e
+            e
+        end
+
+        @test err isa DocumenterSlate.SlateExecutionError
+        @test err.cell_id == "boom"
+        @test nprocs() == nprocs_before   # workers torn down even on failure
     end
 end

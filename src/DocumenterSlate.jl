@@ -62,6 +62,7 @@ milestone plan.
 """
 module DocumenterSlate
 
+import Distributed
 import KaimonSlate
 import TOML
 

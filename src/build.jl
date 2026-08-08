@@ -70,6 +70,90 @@ function _build_one_notebook(path::AbstractString, meta::NotebookMeta, exporter,
     return nothing
 end
 
+# `Distributed.pmap`'s worker function must never let an exception escape uncaught: pmap
+# wraps an escaping exception in `RemoteException`/`CompositeException`, which would change
+# `SlateExecutionError`/`SlateExecutionTimeoutError`'s type as seen by the caller (breaking
+# the `err isa DocumenterSlate.SlateExecutionError` contract the sequential path already
+# guarantees). Catching here and returning the exception as an ordinary value instead
+# sidesteps that entirely: `pmap` sees a normal (non-throwing) result either way, and
+# `_build_parallel!` re-throws the *original* typed exception itself once every worker has
+# finished, after `finally`-guaranteed `rmprocs` cleanup has already run.
+function _build_one_notebook_safe(path::AbstractString, meta::NotebookMeta, exporter,
+                                   options::SlateBuildOptions, output_options::SlateOutputOptions)
+    try
+        _build_one_notebook(path, meta, exporter, options, output_options)
+        return nothing
+    catch e
+        return e
+    end
+end
+
+"""
+    _build_parallel!(to_build, exporter, options::SlateBuildOptions,
+                      output_options::SlateOutputOptions) -> Nothing
+
+Runs [`_build_one_notebook`](@ref) for every `(path, meta)` in `to_build` across
+`min(options.nworkers, length(to_build))` genuinely separate OS processes (REQ-EXE-07),
+each spawned with the *same* active project as the caller so `using DocumenterSlate`
+succeeds on every worker.
+
+# Why separate processes, not threads
+`Threads.@spawn`-based fan-out was considered and rejected: `src/execute.jl`'s stdout
+capture (`_STDOUT_CAPTURE_LOCK`) exists precisely because `redirect_stdout`/`stdout` is
+process-wide mutable state in Julia, not task-local — any threaded approach would either
+corrupt output across concurrently-running notebooks (the M1.9→M1.17 bug this lock fixed)
+or, if the lock is kept, simply serialize the one part of the work that most needs to
+parallelize (every output-producing cell), defeating the purpose. Separate OS processes
+each have their own `stdout`, eliminating the constraint rather than working around it.
+
+# What does NOT get fixed by this
+Workers inherit the calling process's active project (`Base.active_project()`) — this
+implements REQ-EXE-07 (parallelism), it does **not** implement REQ-EXE-02 (each notebook
+executing in its own pinned project). That gap is pre-existing (see [`build_slates`](@ref)'s
+docstring) and unaffected by parallelizing the still-shared-project execution.
+
+# Process lifecycle and error propagation
+`Distributed.addprocs`/`Distributed.rmprocs` are paired in a `try`/`finally` — workers are
+always torn down, even when a notebook build throws, to avoid leaking OS processes.
+[`_build_one_notebook_safe`](@ref) catches every exception on the worker and returns it as
+an ordinary value; after `pmap` completes (and workers are torn down), the first caught
+exception, if any, is re-thrown here with its original type intact — `fail_on_error = true`
+still raises a directly-catchable `SlateExecutionError`/`SlateExecutionTimeoutError`, not a
+`Distributed.RemoteException` wrapper, exactly as the `nworkers = 1` sequential path does.
+Because all workers run concurrently, a failure is *reported* once every dispatched notebook
+has finished, not the instant it occurs — parallel execution cannot offer the sequential
+path's "stop at the very next cell" immediacy (REQ-EXE-04's diagnostic clarity is preserved;
+its stop-fast *timing* is necessarily relaxed under parallelism).
+
+`pmap` preserves `to_build`'s input order in its result vector regardless of which worker
+finished first or in what order, so nothing here disturbs [`build_pages`](@ref)'s ordering
+guarantee — this function only executes/renders/caches; page ordering is computed
+separately, after every worker's result (or exception) is back.
+"""
+function _build_parallel!(to_build, exporter, options::SlateBuildOptions,
+                           output_options::SlateOutputOptions)
+    n = min(options.nworkers, length(to_build))
+    active_project = Base.active_project()
+    worker_ids = Distributed.addprocs(n; exeflags = `--project=$(active_project)`)
+    try
+        # Distributed.@everywhere expands to a top-level `:toplevel` Expr, which is a
+        # syntax error nested inside this function body — remotecall_eval is the same
+        # underlying mechanism the macro itself calls, usable from ordinary code.
+        Distributed.remotecall_eval(Main, worker_ids, :(using DocumenterSlate))
+        pool = Distributed.WorkerPool(worker_ids)
+        results = Distributed.pmap(pool, to_build) do entry
+            path, meta = entry
+            _build_one_notebook_safe(path, meta, exporter, options, output_options)
+        end
+        for r in results
+            r isa Exception && throw(r)
+        end
+    finally
+        Distributed.rmprocs(worker_ids)
+    end
+    return nothing
+end
+
 """
     build_slates(options::SlateBuildOptions,
                  output_options::SlateOutputOptions = SlateOutputOptions()) -> SlateBuildResult
@@ -112,11 +196,19 @@ directly cited requirement. This also feeds the cache key (ADR-004's "hash des o
 rendu", widened — see `cache.jl`'s `_render_option_hash`), so a `show_code` change
 correctly invalidates a stale cache entry rather than silently reusing mismatched output.
 
+# `nworkers > 1` (REQ-EXE-07)
+Notebooks are built across `min(options.nworkers, <number to build>)` separate OS
+processes via [`_build_parallel!`](@ref) — not threads; see that function's docstring for
+why (`src/execute.jl`'s stdout-capture lock makes threaded fan-out either corrupt output or
+fully serialize, not actually parallelize). Falls back to the plain sequential loop when
+`nworkers <= 1` or there is at most one notebook to build (not worth process-spawn
+overhead). Each dispatched notebook still does its own cache lookup independently (on
+whichever worker it lands on) — a hit is cheap disk I/O, not worth special-casing out of
+the worker pool. `pmap`'s result order matches input order regardless of completion order,
+so worker scheduling never disturbs [`build_pages`](@ref)'s ordering.
+
 # Scope not yet implemented (raises `ArgumentError` rather than silently mis-behaving)
 - `output_options.format != :documenter` (`:embed`/`:iframe`, REQ-REN-11) — N2 tier, M4.
-- `options.nworkers > 1` (REQ-EXE-07, parallel execution) — M2.5; this does not error, only
-  `@warn`s and runs sequentially, since running slower-than-requested is not incorrect the
-  way a silently-ignored `:iframe` request would be.
 
 Provenance footers (REQ-REN-07) and download links (REQ-REN-08) are Should-priority and
 not produced by this milestone either, despite `output_options.provenance`/`.downloads`
@@ -137,10 +229,6 @@ function build_slates(options::SlateBuildOptions,
         "SlateOutputOptions.format = :$(output_options.format) is not implemented until " *
         "a later milestone (REQ-REN-11, N2 tier); only :documenter is supported",
     ))
-    if options.nworkers > 1
-        @warn "nworkers > 1 requested but parallel execution (REQ-EXE-07) is not " *
-              "implemented until M2.5; building sequentially" options.nworkers
-    end
 
     exporter = options.exporter === nothing ? TextualReplayExporter() : options.exporter
 
@@ -149,9 +237,13 @@ function build_slates(options::SlateBuildOptions,
 
     isdir(options.output) || mkpath(options.output)
 
-    for (path, meta) in entries
-        meta.skip && continue
-        _build_one_notebook(path, meta, exporter, options, output_options)
+    to_build = [(path, meta) for (path, meta) in entries if !meta.skip]
+    if options.nworkers > 1 && length(to_build) > 1
+        _build_parallel!(to_build, exporter, options, output_options)
+    else
+        for (path, meta) in to_build
+            _build_one_notebook(path, meta, exporter, options, output_options)
+        end
     end
 
     return build_pages(entries)
