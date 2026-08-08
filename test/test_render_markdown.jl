@@ -138,3 +138,38 @@ end
         @test strip(md) == "" || !occursin("```", md)
     end
 end
+
+@testitem "cell_to_markdown: successful stdout/value output is fenced regardless of HTML-special characters (REQ-SEC-05/T3)" begin
+    using DocumenterSlate
+    using Test
+
+    mktempdir() do dir
+        notebook = joinpath(dir, "nb.jl")
+        write(notebook, """
+        try; import KaimonSlate; catch; error("no runtime"); end; KaimonSlate.standalone!(@__MODULE__; dir=@__DIR__)
+
+        #%% code id=printer
+        println("<img src=x onerror=alert(1)>")
+        "<script>alert(2)</script>"
+        """)
+        executed = execute_notebook(TextualReplayExporter(), notebook)
+        cell = only(executed.cells)
+        @test cell.error === nothing   # sanity: this is the success path, not the error path
+
+        md = cell_to_markdown(cell)
+
+        # Both payloads must be present, but only inside fenced (literal-text) blocks --
+        # this is the same fencing mechanism M1.17 applied to the error-message path;
+        # this test closes the analogous gap for ordinary successful output, which uses
+        # the same code but had no adversarial-input test of its own until now.
+        @test occursin("<img src=x onerror=alert(1)>", md)
+        @test occursin("<script>alert(2)</script>", md)
+
+        fence_positions = findall("```", md)
+        @test length(fence_positions) >= 2
+        img_pos = first(findfirst("<img src=x onerror=alert(1)>", md))
+        script_pos = first(findfirst("<script>alert(2)</script>", md))
+        @test first(fence_positions[1]) < img_pos < first(fence_positions[end])
+        @test first(fence_positions[1]) < script_pos < first(fence_positions[end])
+    end
+end

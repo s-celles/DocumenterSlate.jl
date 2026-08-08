@@ -52,6 +52,16 @@ within a single generated page). `{{ … }}` markdown interpolation is out of sc
 same as M1.9's execution step — see that task's notes; none of this package's fixtures
 use it.
 
+**REQ-SEC-05 scope note** (recorded during M3 planning): a markdown cell's source —
+including any raw HTML it contains — is passed through to Documenter's CommonMark pipeline
+*unmodified*, by design. This matches ordinary Documenter `.md`-source-file semantics and is
+required for REQ-REN-02 (native headings feed navigation/search). It is **not** covered by
+REQ-SEC-05's "escape content not explicitly marked as raw HTML" guarantee, which applies to
+*derived/executed* content — `stdout_text`, `value`, error messages — not author-written
+prose. A notebook's markdown cells carry the same trust level as any other Documenter source
+page; review changes to `notebooks/`/`docs/notebooks/` at the same rigor as source code
+(spec §12 T6's own mitigation note makes the same recommendation).
+
 # Code cells (`cell.kind == :code`)
 - Source is shown as a ` ```julia ` fence when `show_code && !(:hidecode in cell.flags)`
   (REQ-REN-05: the `hidecode` tag always wins over `show_code`, since it is the cell
