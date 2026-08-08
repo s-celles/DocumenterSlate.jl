@@ -104,7 +104,7 @@ end
     end
 end
 
-@testitem "build_slates: execution=:never errors clearly (no cache support until M2)" begin
+@testitem "build_slates: execution=:never with a cold cache errors clearly (REQ-EXE-10)" begin
     using DocumenterSlate
     using Test
 
@@ -114,8 +114,106 @@ end
         cp(joinpath(@__DIR__, "fixtures", "notebooks", "simple.jl"), joinpath(source, "simple.jl"))
 
         opts = SlateBuildOptions(; source = source, output = joinpath(root, "out"),
+                                  cache_dir = joinpath(root, "cache-that-does-not-exist"),
                                   execution = :never)
         @test_throws ArgumentError build_slates(opts)
+    end
+end
+
+@testitem "build_slates: :auto populates the cache; a later :never build is a pure cache hit" begin
+    using DocumenterSlate
+    using Test
+
+    mktempdir() do root
+        source = joinpath(root, "notebooks")
+        mkpath(source)
+        cp(joinpath(@__DIR__, "fixtures", "notebooks", "simple.jl"), joinpath(source, "simple.jl"))
+
+        cache_dir = joinpath(root, "cache")
+        opts_auto = SlateBuildOptions(; source = source, output = joinpath(root, "out1"),
+                                       cache_dir = cache_dir)
+        result1 = build_slates(opts_auto)
+        @test isfile(joinpath(cache_dir, "simple.md"))
+        @test isfile(joinpath(cache_dir, "simple.cache.toml"))
+
+        # A completely fresh output directory, execution = :never: can only succeed by
+        # reading the cache populated above -- :never cannot execute anything by
+        # construction, so success here is structural proof of a cache hit, not an
+        # instrumentation-dependent assertion.
+        opts_never = SlateBuildOptions(; source = source, output = joinpath(root, "out2"),
+                                        cache_dir = cache_dir, execution = :never)
+        result2 = build_slates(opts_never)
+
+        @test isfile(joinpath(root, "out2", "simple.md"))
+        @test read(joinpath(root, "out2", "simple.md"), String) ==
+              read(joinpath(root, "out1", "simple.md"), String)
+        @test result1.pages == result2.pages
+    end
+end
+
+@testitem "build_slates: a mutated notebook invalidates the cache and re-executes" begin
+    using DocumenterSlate
+    using Test
+
+    mktempdir() do root
+        source = joinpath(root, "notebooks")
+        mkpath(source)
+        notebook = joinpath(source, "nb.jl")
+        write(notebook, """
+        try; import KaimonSlate; catch; error("no runtime"); end; KaimonSlate.standalone!(@__MODULE__; dir=@__DIR__)
+
+        #%% code id=calc
+        1 + 1
+        """)
+
+        cache_dir = joinpath(root, "cache")
+        opts = SlateBuildOptions(; source = source, output = joinpath(root, "out"), cache_dir = cache_dir)
+        build_slates(opts)
+        @test occursin("2", read(joinpath(root, "out", "nb.md"), String))
+
+        write(notebook, """
+        try; import KaimonSlate; catch; error("no runtime"); end; KaimonSlate.standalone!(@__MODULE__; dir=@__DIR__)
+
+        #%% code id=calc
+        1 + 100
+        """)
+        build_slates(opts)
+        @test occursin("101", read(joinpath(root, "out", "nb.md"), String))
+        @test occursin("101", read(joinpath(cache_dir, "nb.md"), String))   # cache refreshed too
+    end
+end
+
+@testitem "build_slates: execution=:always always re-executes even with a warm cache" begin
+    using DocumenterSlate
+    using Test
+
+    mktempdir() do root
+        source = joinpath(root, "notebooks")
+        mkpath(source)
+        notebook = joinpath(source, "nb.jl")
+        write(notebook, """
+        try; import KaimonSlate; catch; error("no runtime"); end; KaimonSlate.standalone!(@__MODULE__; dir=@__DIR__)
+
+        #%% code id=c
+        println("ran")
+        1
+        """)
+
+        cache_dir = joinpath(root, "cache")
+        opts_auto = SlateBuildOptions(; source = source, output = joinpath(root, "out"), cache_dir = cache_dir)
+        build_slates(opts_auto)   # populate cache
+
+        # Rewrite the cached page to a sentinel value; if :always incorrectly served from
+        # cache, the output would contain the sentinel instead of a freshly rendered page.
+        write(joinpath(cache_dir, "nb.md"), "SENTINEL: should never be served by :always")
+
+        opts_always = SlateBuildOptions(; source = source, output = joinpath(root, "out2"),
+                                         cache_dir = cache_dir, execution = :always)
+        build_slates(opts_always)
+
+        content = read(joinpath(root, "out2", "nb.md"), String)
+        @test !occursin("SENTINEL", content)
+        @test occursin("ran", content)
     end
 end
 
