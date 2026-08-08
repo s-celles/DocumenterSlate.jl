@@ -292,3 +292,67 @@ end
         @test nprocs() == nprocs_before   # workers torn down even on failure
     end
 end
+
+@testitem "build_slates: logs one @info line per notebook with status/elapsed_s (REQ-CI-02)" begin
+    using DocumenterSlate
+    using Test
+
+    mktempdir() do root
+        source = joinpath(root, "notebooks")
+        mkpath(source)
+        cp(joinpath(@__DIR__, "fixtures", "notebooks", "simple.jl"), joinpath(source, "simple.jl"))
+
+        cache_dir = joinpath(root, "cache")
+        opts = SlateBuildOptions(; source = source, output = joinpath(root, "out"),
+                                  cache_dir = cache_dir)
+
+        logs1, _ = Test.collect_test_logs() do
+            build_slates(opts)
+        end
+        build_logs1 = filter(l -> l.message == "notebook build", logs1)
+        @test length(build_logs1) == 1
+        kwargs1 = Dict(build_logs1[1].kwargs)
+        @test kwargs1[:slug] == "simple"
+        @test kwargs1[:status] == :executed
+        @test haskey(kwargs1, :elapsed_s)
+
+        # Second build, same options: now a cache hit.
+        logs2, _ = Test.collect_test_logs() do
+            build_slates(opts)
+        end
+        build_logs2 = filter(l -> l.message == "notebook build", logs2)
+        @test length(build_logs2) == 1
+        kwargs2 = Dict(build_logs2[1].kwargs)
+        @test kwargs2[:status] == :cached
+    end
+end
+
+@testitem "build_slates: logs status=:failed and re-raises unchanged when a notebook build throws" begin
+    using DocumenterSlate
+    using Test
+
+    mktempdir() do root
+        source = joinpath(root, "notebooks")
+        mkpath(source)
+        cp(joinpath(@__DIR__, "fixtures", "notebooks", "simple.jl"), joinpath(source, "simple.jl"))
+
+        opts = SlateBuildOptions(; source = source, output = joinpath(root, "out"),
+                                  cache_dir = joinpath(root, "cache-that-does-not-exist"),
+                                  execution = :never)
+
+        logs, err = Test.collect_test_logs() do
+            try
+                build_slates(opts)
+                nothing
+            catch e
+                e
+            end
+        end
+        @test err isa ArgumentError
+
+        build_logs = filter(l -> l.message == "notebook build", logs)
+        @test length(build_logs) == 1
+        kwargs = Dict(build_logs[1].kwargs)
+        @test kwargs[:status] == :failed
+    end
+end

@@ -14,60 +14,74 @@ end
 
 # One notebook's full pipeline: cache lookup (unless `:always`) -> execute on a miss ->
 # render -> write to `options.output` -> refresh the cache. Factored out of `build_slates`'s
-# loop body so M2.5's parallel path can call it identically per-worker.
+# loop body so M2.5's parallel path can call it identically per-worker. Logs one @info line
+# per notebook with its final status (:cached/:executed) and elapsed wall-clock time
+# (REQ-CI-02, pulled forward from M3 since M2 introduces these statuses in the first place —
+# there'd otherwise be nothing observable distinguishing a fast cache hit from a slow
+# re-execution). A thrown exception (execution=:never miss, or a fail_on_error=true cell
+# error) is logged as :failed and then re-raised unchanged — this is observability, not
+# error handling, so it must never swallow or alter what the caller sees.
 function _build_one_notebook(path::AbstractString, meta::NotebookMeta, exporter,
                               options::SlateBuildOptions, output_options::SlateOutputOptions)
+    t0 = time()
     slug = splitext(basename(path))[1]
-    project = resolve_notebook_project(path)
-    components = _gather_cache_components(path, project, output_options, meta,
-                                           options.fail_on_error)
-    fingerprint = _cache_fingerprint(components)
+    try
+        project = resolve_notebook_project(path)
+        components = _gather_cache_components(path, project, output_options, meta,
+                                               options.fail_on_error)
+        fingerprint = _cache_fingerprint(components)
 
-    cached = options.execution == :always ? nothing :
-             _read_cache_entry(options.cache_dir, slug, fingerprint)
+        cached = options.execution == :always ? nothing :
+                 _read_cache_entry(options.cache_dir, slug, fingerprint)
 
-    if cached !== nothing
-        _write_output_from_cache(options.output, slug, cached)
+        if cached !== nothing
+            _write_output_from_cache(options.output, slug, cached)
+            @info "notebook build" slug status=:cached elapsed_s=round(time() - t0; digits = 3)
+            return nothing
+        end
+
+        if options.execution == :never
+            throw(ArgumentError(
+                "execution = :never requires a cache hit for notebook \"$path\" (slug " *
+                "\"$slug\"), but none was found under cache_dir=\"$(options.cache_dir)\" " *
+                "matching the current fingerprint ($fingerprint); populate the cache with " *
+                "a prior :auto or :always build before using :never (REQ-EXE-10)",
+            ))
+        end
+
+        executed = execute_notebook(exporter, path;
+                                     fail_on_error = options.fail_on_error, binds = meta.binds)
+
+        assets_out_dir = joinpath(options.output, "assets", slug)
+        assets_by_cell = if output_options.assets == :files
+            extract_assets!(executed, assets_out_dir)
+        else
+            Dict{String,String}()
+        end
+
+        show_code = output_options.show_code && meta.show_code
+        rendered = map(executed.cells) do cell
+            asset_file = get(assets_by_cell, cell.cell_id, nothing)
+            asset_path = asset_file === nothing ? nothing :
+                         joinpath("assets", slug, asset_file)
+            cell_to_markdown(cell; show_code = show_code, anchor_prefix = slug,
+                              asset_path = asset_path)
+        end
+        page_text = join(rendered, "\n\n")
+        write(joinpath(options.output, slug * ".md"), page_text)
+
+        # Refresh the cache on every non-cache-hit build (`:auto` miss, or `:always`) so a
+        # *following* `:auto`/`:never` build benefits (REQ-CACHE-01's "réutiliser" invariant
+        # holds for the next build, not just this one).
+        _write_cache_entry!(options.cache_dir, slug, fingerprint, components, page_text,
+                             isdir(assets_out_dir) ? assets_out_dir : nothing)
+
+        @info "notebook build" slug status=:executed elapsed_s=round(time() - t0; digits = 3)
         return nothing
+    catch e
+        @info "notebook build" slug status=:failed elapsed_s=round(time() - t0; digits = 3)
+        rethrow(e)
     end
-
-    if options.execution == :never
-        throw(ArgumentError(
-            "execution = :never requires a cache hit for notebook \"$path\" (slug " *
-            "\"$slug\"), but none was found under cache_dir=\"$(options.cache_dir)\" " *
-            "matching the current fingerprint ($fingerprint); populate the cache with a " *
-            "prior :auto or :always build before using :never (REQ-EXE-10)",
-        ))
-    end
-
-    executed = execute_notebook(exporter, path;
-                                 fail_on_error = options.fail_on_error, binds = meta.binds)
-
-    assets_out_dir = joinpath(options.output, "assets", slug)
-    assets_by_cell = if output_options.assets == :files
-        extract_assets!(executed, assets_out_dir)
-    else
-        Dict{String,String}()
-    end
-
-    show_code = output_options.show_code && meta.show_code
-    rendered = map(executed.cells) do cell
-        asset_file = get(assets_by_cell, cell.cell_id, nothing)
-        asset_path = asset_file === nothing ? nothing :
-                     joinpath("assets", slug, asset_file)
-        cell_to_markdown(cell; show_code = show_code, anchor_prefix = slug,
-                          asset_path = asset_path)
-    end
-    page_text = join(rendered, "\n\n")
-    write(joinpath(options.output, slug * ".md"), page_text)
-
-    # Refresh the cache on every non-cache-hit build (`:auto` miss, or `:always`) so a
-    # *following* `:auto`/`:never` build benefits (REQ-CACHE-01's "réutiliser" invariant
-    # holds for the next build, not just this one).
-    _write_cache_entry!(options.cache_dir, slug, fingerprint, components, page_text,
-                         isdir(assets_out_dir) ? assets_out_dir : nothing)
-
-    return nothing
 end
 
 # `Distributed.pmap`'s worker function must never let an exception escape uncaught: pmap
