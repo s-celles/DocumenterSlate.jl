@@ -5,14 +5,60 @@ Publishes [KaimonSlate.jl](https://github.com/kahliburke/KaimonSlate.jl) reactiv
 notebooks as native [Documenter.jl](https://github.com/JuliaDocs/Documenter.jl)
 pages in CI.
 
-Currently exposes [`SlateBuildOptions`](@ref), [`SlateOutputOptions`](@ref),
+# Quick start
+
+```julia
+using Documenter, DocumenterSlate
+
+result = build_slates(
+    SlateBuildOptions(; source = joinpath(@__DIR__, "..", "notebooks"),
+                       output = joinpath(@__DIR__, "src", "notebooks")),
+)
+
+makedocs(; sitename = "MyPkg.jl",
+         pages = ["Home" => "index.md", "Notebooks" => result.pages])
+```
+
+[`build_slates`](@ref) is the single public entry point (the M1/N0 tier — spec.md §7/§14):
+it discovers notebooks ([`discover_notebooks`](@ref)), executes each headlessly via
+[`TextualReplayExporter`](@ref) (built on KaimonSlate's own exported `standalone!`
+primitive, not the interactive hub — see that type's docstring for why), converts cells to
+Documenter Markdown ([`cell_to_markdown`](@ref)), extracts figures
+([`extract_assets!`](@ref)), and orders everything into `.pages` ([`build_pages`](@ref))
+for `makedocs`.
+
+# Where generated files land
+
+`build_slates` writes one `.md` page and an `assets/<notebook-name>/` subdirectory per
+notebook into `options.output`. **Always git-ignore that directory** (REQ-DOC-02): it is
+regenerated on every `docs/make.jl` run, never source. Spec.md §6 documents the
+`docs/src/notebooks/`-style convention this package's own future example follows.
+
+# Notebook format
+
+Built against the real KaimonSlate `.jl` notebook format (`#%% md id=...` /
+`#%% code id=...` cells, `@bind`, role tags like `title`/`hidecode`, an embedded
+`Slate.env` dependency footer) as confirmed by reading a local KaimonSlate.jl v1.0.0
+checkout during development — not from spec.md's original, partially-guessed examples.
+See `upstream-bugs.md` (repository root, not shipped in the package) for what was
+confirmed against upstream source versus what is still open with the KaimonSlate
+maintainer.
+
+# Public API (M1)
+
+[`SlateBuildOptions`](@ref), [`SlateOutputOptions`](@ref), [`build_slates`](@ref),
 [`discover_notebooks`](@ref), [`resolve_notebook_project`](@ref),
 [`NotebookProjectResolution`](@ref), [`resolve_notebook_meta`](@ref),
 [`NotebookMeta`](@ref), [`AbstractSlateExporter`](@ref),
 [`TextualReplayExporter`](@ref), [`execute_notebook`](@ref),
-[`ExecutedNotebook`](@ref), [`CellResult`](@ref), [`SlateExecutionError`](@ref) and
-[`SlateExecutionTimeoutError`](@ref); the `build_slates` orchestration entry point is not
-implemented yet.
+[`ExecutedNotebook`](@ref), [`CellResult`](@ref), [`SlateExecutionError`](@ref),
+[`SlateExecutionTimeoutError`](@ref), [`cell_to_markdown`](@ref),
+[`extract_assets!`](@ref), [`build_pages`](@ref), [`SlateBuildResult`](@ref).
+
+Not yet implemented: the `SlatePlugin <: Documenter.Plugin` / `@slate` expander (N1),
+caching (M2), CI security hardening and the two-job workflow (M3), artifact distribution
+(M3b), and the `:embed`/`:iframe` output formats (M4) — see spec.md §14 for the full
+milestone plan.
 """
 module DocumenterSlate
 
