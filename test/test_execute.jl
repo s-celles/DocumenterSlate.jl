@@ -170,3 +170,23 @@ end
         @test !occursin(pattern, src)
     end
 end
+
+@testitem "execute_notebook never starts the KaimonSlate hub (REQ-SEC-01)" begin
+    using DocumenterSlate
+    using KaimonSlate
+    using Test
+
+    # KaimonSlate._HUB (KaimonSlate.jl:168, `const _HUB = Ref{Union{Hub,Nothing}}(nothing)`)
+    # is only ever populated by `_hub()`, which TextualReplayExporter's sole calls into
+    # KaimonSlate (standalone!, parse_report) never reach -- see upstream-bugs.md §9 for the
+    # exact call sites checked. Checking the internal Ref directly (not a port-connect probe:
+    # the literal port number is environment-dependent and unreliable to assert against, e.g.
+    # something unrelated may already occupy it in a given sandbox) is a real runtime check
+    # of that claim's actual mechanism, not just a documented assertion.
+    @test KaimonSlate._HUB[] === nothing   # sanity: not started before this test runs
+
+    notebook = joinpath(@__DIR__, "fixtures", "notebooks", "simple.jl")
+    execute_notebook(TextualReplayExporter(), notebook)
+
+    @test KaimonSlate._HUB[] === nothing   # still not started after a real execution
+end
