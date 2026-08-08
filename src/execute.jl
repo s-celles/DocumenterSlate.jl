@@ -124,6 +124,21 @@ function _format_backtrace_lines(bt)
     return String.(split(text, '\n'))
 end
 
+# `redirect_stdout`/`stdout` is *process-wide* mutable state, not task-local (despite an
+# earlier version of this comment claiming otherwise — empirically disproven: overlapping
+# redirect/restore across two concurrently-live `_eval_cell` calls corrupts stdout for
+# BOTH, up to and including the caller's own unrelated output). The only source of overlap
+# in M1 (no parallel notebook execution yet, REQ-EXE-07/nworkers is M2) is a *leaked* task
+# from a fired `SlateExecutionTimeoutError` (execute_notebook's caller stops waiting, but a
+# non-yielding-detection-only timeout — see exporters.jl's `timeout` docstring — leaves the
+# cell's own `Threads.@spawn`'d task running until it naturally finishes) racing against a
+# later, unrelated `_eval_cell` call in the same process. This lock serializes the
+# redirect/eval/restore critical section process-wide: a live notebook execution blocks
+# briefly on a leaked one rather than racing it. Cheap and correct for M1's sequential
+# execution model; a future parallel (`nworkers > 1`) implementation will need a per-task
+# capture mechanism that doesn't share this global, not just a bigger lock.
+const _STDOUT_CAPTURE_LOCK = ReentrantLock()
+
 # Evaluate a single code cell's source in `mod`, mirroring `include`'s semantics (last
 # top-level value returned; multiple statements run in order) via `Base.include_string`.
 # Captures everything printed to `stdout` while it runs. Returns
@@ -131,12 +146,13 @@ end
 # success. `include_string` wraps a thrown exception in a `LoadError`; unwrapped here so
 # `CellResult.error`/`SlateExecutionError` report the exception the cell itself raised,
 # not an internal loading artifact.
-#
-# Julia's `stdout` binding is task-local (redirecting it here does not affect any other
-# task, including the caller), so this is safe to call concurrently from independent
-# notebook executions (each `execute_notebook` call's cell loop runs inside its own
-# `Threads.@spawn`'d task — see `execute_notebook`).
 function _eval_cell(mod::Module, cell, notebook_path::AbstractString)
+    lock(_STDOUT_CAPTURE_LOCK) do
+        _eval_cell_locked(mod, cell, notebook_path)
+    end
+end
+
+function _eval_cell_locked(mod::Module, cell, notebook_path::AbstractString)
     pipe = Pipe()
     Base.link_pipe!(pipe; reader_supports_async = true, writer_supports_async = true)
     old_stdout = stdout
@@ -152,11 +168,33 @@ function _eval_cell(mod::Module, cell, notebook_path::AbstractString)
         err = e isa LoadError ? e.error : e
         bt = catch_backtrace()
     finally
-        redirect_stdout(old_stdout)
-        close(pipe.in)
+        # A cell that outlives execute_notebook's timeout (SlateExecutionTimeoutError
+        # already raised, exporters.jl's docstring is explicit this is detection-only, not
+        # a kill) reaches this cleanup on its own schedule, arbitrarily later, in whatever
+        # task-local stdout context it happens to wake up in — by then old_stdout / the
+        # pipe may already be torn down by the caller (empirically: the test runner
+        # recycles per-item IO streams between test items). Nothing downstream is still
+        # listening for this cell's result at that point, so best-effort cleanup here
+        # (never crash the process a leaked task happens to wake up in) is the correct
+        # behavior, not error-hiding for a case anyone still cares about the outcome of.
+        try
+            redirect_stdout(old_stdout)
+        catch
+        end
+        try
+            close(pipe.in)
+        catch
+        end
     end
-    out = fetch(reader)
-    close(pipe.out)
+    out = try
+        fetch(reader)
+    catch
+        ""
+    end
+    try
+        close(pipe.out)
+    catch
+    end
 
     return (value, out, err, bt)
 end
