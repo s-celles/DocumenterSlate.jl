@@ -27,6 +27,7 @@ include("exporters.jl")
 include("execute.jl")
 include("render_markdown.jl")
 include("assets.jl")
+include("pages.jl")
 
 export SlateBuildOptions, SlateOutputOptions, discover_notebooks,
        resolve_notebook_project, NotebookProjectResolution,
@@ -34,6 +35,7 @@ export SlateBuildOptions, SlateOutputOptions, discover_notebooks,
        AbstractSlateExporter, TextualReplayExporter,
        execute_notebook, ExecutedNotebook, CellResult,
        SlateExecutionError, SlateExecutionTimeoutError,
-       cell_to_markdown, extract_assets!
+       cell_to_markdown, extract_assets!,
+       build_pages, SlateBuildResult
 
 end
