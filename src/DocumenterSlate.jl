@@ -80,6 +80,7 @@ module DocumenterSlate
 
 import Distributed
 import KaimonSlate
+import Logging
 import TOML
 
 include("options.jl")
@@ -93,6 +94,7 @@ include("assets.jl")
 include("pages.jl")
 include("cache.jl")
 include("build.jl")
+include("ci_summary.jl")
 
 export SlateBuildOptions, SlateOutputOptions, discover_notebooks,
        resolve_notebook_project, NotebookProjectResolution,
@@ -102,6 +104,7 @@ export SlateBuildOptions, SlateOutputOptions, discover_notebooks,
        SlateExecutionError, SlateExecutionTimeoutError,
        cell_to_markdown, extract_assets!,
        build_pages, SlateBuildResult,
-       build_slates
+       build_slates,
+       collect_build_statuses, write_github_step_summary
 
 end
