@@ -72,6 +72,36 @@ end
     @test occursin("boom", md)
 end
 
+@testitem "cell_to_markdown: error message is fenced, not spliced as raw interpretable text (REQ-SEC-05/T3)" begin
+    using DocumenterSlate
+    using Test
+
+    mktempdir() do dir
+        notebook = joinpath(dir, "nb.jl")
+        write(notebook, """
+        try; import KaimonSlate; catch; error("no runtime"); end; KaimonSlate.standalone!(@__MODULE__; dir=@__DIR__)
+
+        #%% code id=boom
+        error("<script>alert(1)</script>")
+        """)
+        executed = execute_notebook(TextualReplayExporter(), notebook; fail_on_error = false)
+        boom = only(executed.cells)
+
+        md = cell_to_markdown(boom)
+
+        # The literal payload must be present, but only inside a fenced (literal-text)
+        # block — never left as bare, Markdown/raw-HTML-interpretable text. A prior version
+        # of this function fenced the backtrace but not the exception's own message,
+        # leaving arbitrary runtime-controlled text (whatever a cell happens to throw)
+        # unescaped in the page.
+        @test occursin("<script>alert(1)</script>", md)
+        fence_positions = findall("```", md)
+        @test length(fence_positions) >= 2
+        payload_pos = first(findfirst("<script>alert(1)</script>", md))
+        @test first(fence_positions[1]) < payload_pos < first(fence_positions[end])
+    end
+end
+
 @testitem "cell_to_markdown: anchors are prefixed per-notebook to avoid cross-page collisions" begin
     using DocumenterSlate
     using Test

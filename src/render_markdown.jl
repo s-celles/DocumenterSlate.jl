@@ -87,12 +87,19 @@ function cell_to_markdown(cell::CellResult; show_code::Bool = true,
     end
 
     if cell.error !== nothing
+        # REQ-SEC-05/T3: the exception's own message is runtime-controlled text (whatever
+        # the notebook's code happened to throw, e.g. `error("<script>…</script>")`) — it
+        # MUST be fenced like the backtrace already was, not spliced into the admonition
+        # body as interpretable Markdown/raw-HTML-passthrough. A single fenced block for
+        # both keeps that guarantee simple: everything inside ``` ``` renders as literal
+        # text under Documenter's CommonMark pipeline regardless of content.
         body = _error_headline(cell.error)
         if cell.backtrace !== nothing && !isempty(cell.backtrace)
-            body *= "\n\n```\n" * cell.backtrace * "\n```"
+            body *= "\n\n" * cell.backtrace
         end
+        fenced = "```\n" * body * "\n```"
         push!(parts, "!!! error \"Cell errored\"\n    " *
-                      replace(body, "\n" => "\n    "))
+                      replace(fenced, "\n" => "\n    "))
     elseif asset_path !== nothing
         !isempty(cell.stdout_text) && push!(parts, "```\n" * cell.stdout_text * "\n```")
         push!(parts, "![](" * asset_path * ")")
