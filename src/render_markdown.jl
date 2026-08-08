@@ -37,7 +37,8 @@ _error_headline(err::Exception) = sprint(showerror, err)
 
 """
     cell_to_markdown(cell::CellResult; show_code::Bool = true,
-                      anchor_prefix::AbstractString = "") -> String
+                      anchor_prefix::AbstractString = "",
+                      asset_path::Union{Nothing,AbstractString} = nothing) -> String
 
 Convert one executed cell (REQ-REN-01) into a Documenter-native Markdown fragment.
 
@@ -59,18 +60,21 @@ use it.
   notebook was executed with `fail_on_error = false`), the output is a Documenter
   `!!! error` admonition containing the formatted exception and its backtrace, so the
   failure is visible on the page rather than silently dropped (REQ-EXE-05).
-- Otherwise, non-empty `stdout_text` and/or a non-`nothing` `value` are rendered as a
-  plain, untagged fenced block — **never** ` ```jldoctest ` (REQ-REN-10: notebook output
-  must not be picked up by Documenter's doctest runner). A cell with neither stdout nor a
-  displayable value (e.g. ending in a bare `using X` or `nothing`) produces no output
-  block at all.
+- Otherwise, if `asset_path` is given (the relative path [`extract_assets!`](@ref) wrote
+  the cell's value to — REQ-REN-03), the output is a single `![](asset_path)` image link
+  instead of a text rendering of the value. Otherwise, non-empty `stdout_text` and/or a
+  non-`nothing` `value` are rendered as a plain, untagged fenced block — **never**
+  ` ```jldoctest ` (REQ-REN-10: notebook output must not be picked up by Documenter's
+  doctest runner). A cell with neither stdout nor a displayable value (e.g. ending in a
+  bare `using X` or `nothing`) and no `asset_path` produces no output block at all.
 
 Preserves literal `\$…\$`/`\$\$…\$\$` math untouched in both branches (REQ-REN-06) — no
 rewriting is performed, so whatever KaTeX/MathJax3 syntax the notebook author used passes
 straight through.
 """
 function cell_to_markdown(cell::CellResult; show_code::Bool = true,
-                           anchor_prefix::AbstractString = "")
+                           anchor_prefix::AbstractString = "",
+                           asset_path::Union{Nothing,AbstractString} = nothing)
     if cell.kind == :md
         return _anchor_annotate_headings(cell.source, anchor_prefix)
     end
@@ -89,6 +93,9 @@ function cell_to_markdown(cell::CellResult; show_code::Bool = true,
         end
         push!(parts, "!!! error \"Cell errored\"\n    " *
                       replace(body, "\n" => "\n    "))
+    elseif asset_path !== nothing
+        !isempty(cell.stdout_text) && push!(parts, "```\n" * cell.stdout_text * "\n```")
+        push!(parts, "![](" * asset_path * ")")
     else
         output_lines = String[]
         !isempty(cell.stdout_text) && push!(output_lines, cell.stdout_text)
