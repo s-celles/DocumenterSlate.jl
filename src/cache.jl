@@ -25,7 +25,10 @@ end
 # needs — it's compared to itself, never parsed back).
 function _env_fingerprint_bytes(project::NotebookProjectResolution)
     if project.kind == :external
-        bytes = read(joinpath(project.project_dir, "Project.toml"))
+        # resolve_notebook_project's contract guarantees project_dir is set whenever
+        # kind == :external (see its docstring); something(...) narrows the field's
+        # declared Union{Nothing,String} type accordingly.
+        bytes = read(joinpath(something(project.project_dir), "Project.toml"))
         if project.manifest_path !== nothing && isfile(project.manifest_path)
             bytes = vcat(bytes, read(project.manifest_path))
         end

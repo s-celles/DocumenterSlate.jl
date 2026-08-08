@@ -58,7 +58,12 @@ function _resolve_own_title(report, notebook_path::AbstractString)::String
         for ln in split(String(cells[titlei].source), '\n')
             isempty(strip(ln)) && continue
             m = match(_TITLE_TAG_H1_LINE_RE, ln)
-            m !== nothing && return strip(m.captures[1])
+            # `_TITLE_TAG_H1_LINE_RE`'s sole capture group is non-optional, so whenever the
+            # whole match succeeds, captures[1] is always populated -- `something(...)`
+            # narrows `RegexMatch.captures`'s declared `Union{Nothing,SubString}` element
+            # type accordingly (and would throw, correctly, if that invariant were ever
+            # violated, rather than silently misbehaving).
+            m !== nothing && return strip(something(m.captures[1]))
         end
         # A tagged `:title` cell with no H1 line does NOT fall through to searching
         # other cells (upstream's `report_frontmatter` only re-derives the title in the
@@ -68,7 +73,7 @@ function _resolve_own_title(report, notebook_path::AbstractString)::String
             c.kind == KaimonSlate.MARKDOWN || continue
             m = match(_ANY_CELL_H1_RE, c.source)
             m === nothing && continue
-            return strip(m.captures[1])
+            return strip(something(m.captures[1]))   # see the analogous narrowing above
         end
     end
     return splitext(basename(notebook_path))[1]
@@ -86,7 +91,21 @@ function _find_notebook_toml_entry(
 )
     slate_toml_path === nothing && return nothing
     toml = TOML.parsefile(slate_toml_path)
-    entries = get(toml, "notebook", Vector{Any}())
+    # `toml::Dict{String,Any}` (TOML.jl's own return type) means `get(toml, "notebook", ...)`
+    # is statically `Any` regardless of the default's type. An `isa` check (rather than a
+    # broadcasted conversion, whose own return type is still inferred from an `Any` input
+    # and doesn't actually narrow anything) is control-flow narrowing JET's analysis
+    # recognizes: after this branch, `raw` is concretely `AbstractVector`, so the
+    # `Dict{String,Any}[...]` comprehension below produces a genuinely concrete
+    # `Vector{Dict{String,Any}}`, not an `Any`-typed one — REQ-INT-02/spec §10's
+    # `[[notebook]]` really must be an array of tables; anything else is a malformed
+    # `slate.toml`, worth a clear error rather than papering over.
+    raw = get(toml, "notebook", [])
+    raw isa AbstractVector || throw(ArgumentError(
+        "`notebook` in `$slate_toml_path` must be an array of tables (`[[notebook]]`), " *
+        "got a `$(typeof(raw))`",
+    ))
+    entries = Dict{String,Any}[Dict{String,Any}(e) for e in raw]
     name = basename(notebook_path)
     idx = findfirst(e -> basename(String(get(e, "path", ""))) == name, entries)
     return idx === nothing ? nothing : entries[idx]

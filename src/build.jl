@@ -21,7 +21,8 @@ end
 # re-execution). A thrown exception (execution=:never miss, or a fail_on_error=true cell
 # error) is logged as :failed and then re-raised unchanged — this is observability, not
 # error handling, so it must never swallow or alter what the caller sees.
-function _build_one_notebook(path::AbstractString, meta::NotebookMeta, exporter,
+function _build_one_notebook(path::AbstractString, meta::NotebookMeta,
+                              exporter::AbstractSlateExporter,
                               options::SlateBuildOptions, output_options::SlateOutputOptions)
     t0 = time()
     slug = splitext(basename(path))[1]
@@ -60,14 +61,35 @@ function _build_one_notebook(path::AbstractString, meta::NotebookMeta, exporter,
         end
 
         show_code = output_options.show_code && meta.show_code
-        rendered = map(executed.cells) do cell
-            asset_file = get(assets_by_cell, cell.cell_id, nothing)
-            asset_path = asset_file === nothing ? nothing :
-                         joinpath("assets", slug, asset_file)
-            cell_to_markdown(cell; show_code = show_code, anchor_prefix = slug,
-                              asset_path = asset_path)
+        # `String[...]`-typed comprehension (not `map(...) do`) so `rendered` is concretely
+        # `Vector{String}`, matching `cell_to_markdown`'s declared `-> String` return —
+        # avoids widening to `Vector{Any}` that a generic `map` closure can infer here.
+        rendered = String[
+            let asset_file = get(assets_by_cell, cell.cell_id, nothing),
+                asset_path = asset_file === nothing ? nothing :
+                             joinpath("assets", slug, asset_file)
+
+                cell_to_markdown(cell; show_code = show_code, anchor_prefix = slug,
+                                  asset_path = asset_path)
+            end
+            for cell in executed.cells
+        ]
+        # Built via IOBuffer rather than `join(rendered, "\n\n")`: `_build_one_notebook`'s
+        # long, branch-heavy `try` body exceeds Julia's inference complexity budget by this
+        # point (confirmed via `@code_warntype`: `join`'s inferred return type here widened
+        # to `Union{Nothing, Base.AnnotatedString{String}, String}` despite `rendered` being
+        # concretely `Vector{String}` — a known Julia inference-budget limitation for large
+        # functions, not a real bug; even an explicit `::String` LHS annotation only moved
+        # the same "possible convert(String, Nothing)" finding rather than resolving it,
+        # since the annotation itself still round-trips through the same widened value).
+        # `String(take!(io::IOBuffer))` is unambiguously, monomorphically `String` —
+        # sidesteps `join`'s declared return type entirely instead of fighting it.
+        io = IOBuffer()
+        for (i, part) in enumerate(rendered)
+            i > 1 && write(io, "\n\n")
+            write(io, part)
         end
-        page_text = join(rendered, "\n\n")
+        page_text = String(take!(io))
         write(joinpath(options.output, slug * ".md"), page_text)
 
         # Refresh the cache on every non-cache-hit build (`:auto` miss, or `:always`) so a
@@ -92,7 +114,8 @@ end
 # sidesteps that entirely: `pmap` sees a normal (non-throwing) result either way, and
 # `_build_parallel!` re-throws the *original* typed exception itself once every worker has
 # finished, after `finally`-guaranteed `rmprocs` cleanup has already run.
-function _build_one_notebook_safe(path::AbstractString, meta::NotebookMeta, exporter,
+function _build_one_notebook_safe(path::AbstractString, meta::NotebookMeta,
+                                   exporter::AbstractSlateExporter,
                                    options::SlateBuildOptions, output_options::SlateOutputOptions)
     try
         _build_one_notebook(path, meta, exporter, options, output_options)
@@ -144,7 +167,7 @@ finished first or in what order, so nothing here disturbs [`build_pages`](@ref)'
 guarantee — this function only executes/renders/caches; page ordering is computed
 separately, after every worker's result (or exception) is back.
 """
-function _build_parallel!(to_build, exporter, options::SlateBuildOptions,
+function _build_parallel!(to_build, exporter::AbstractSlateExporter, options::SlateBuildOptions,
                            output_options::SlateOutputOptions)
     n = min(options.nworkers, length(to_build))
     active_project = Base.active_project()

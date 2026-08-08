@@ -245,14 +245,19 @@ function _execute_cells(report, notebook_path::AbstractString, fail_on_error::Bo
         value, out, err, bt = _eval_cell(mod, cell, notebook_path)
 
         if err !== nothing
+            # `err`/`bt` are only ever set together, in the same `catch` block inside
+            # `_eval_cell` — `err !== nothing` implies `bt !== nothing` at runtime, but that
+            # correlation between two independently-`Union{Nothing,...}`-typed return values
+            # isn't provable by the type system on its own; `something(bt)` narrows it.
+            backtrace = something(bt)
             if fail_on_error
                 throw(SlateExecutionError(
                     notebook_path, cell.id, idx, cell.source,
-                    first(_format_backtrace_lines(bt), 20),
+                    first(_format_backtrace_lines(backtrace), 20),
                 ))
             end
             push!(results, CellResult(cell.id, :code, cell.source, cell.flags, out, nothing,
-                                       err, join(_format_backtrace_lines(bt), '\n')))
+                                       err, join(_format_backtrace_lines(backtrace), '\n')))
             continue
         end
 

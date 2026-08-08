@@ -22,7 +22,10 @@ function _anchor_annotate_headings(text::AbstractString, anchor_prefix::Abstract
     for line in split(text, '\n')
         m = match(_ATX_HEADING_RE, line)
         if m !== nothing
-            slug = _slugify(m.captures[2])
+            # `_ATX_HEADING_RE`'s two capture groups are both non-optional, so captures[2]
+            # is always populated on a successful match -- `something(...)` narrows the
+            # declared `Union{Nothing,SubString}` element type accordingly.
+            slug = _slugify(something(m.captures[2]))
             anchor_id = isempty(anchor_prefix) ? slug : anchor_prefix * "-" * slug
             push!(out, "<a id=\"" * anchor_id * "\"></a>")
         end
