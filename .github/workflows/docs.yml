@@ -104,7 +104,7 @@ jobs:
       # to the run and guaranteed available to a `needs:`-dependent job, which is the
       # actual guarantee this job needs. If the artifact is somehow missing, this step
       # fails outright rather than silently proceeding with an empty `docs/slate_cache`.
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: slate-cache
           path: docs/slate_cache
