@@ -199,6 +199,33 @@ REQ-INT-02).
 4. [`build_pages`](@ref) over every discovered `(path, meta)` pair (including `skip`
    entries, which it filters) to produce the ordered `.pages`.
 
+# Known limitation: `execution = :never`'s cache trust has no producer binding
+(M2 security review finding, recorded here since it's the first milestone where
+`:never` is actually functional.) The composite fingerprint (ADR-004) is computed only
+from *inputs* — notebook bytes, resolved environment, tool versions, render options — all
+of which spec.md itself requires publishing (REQ-DIST-01/02) or are checked into the repo.
+It never hashes the paired `.md` body. A party who can place a `<slug>.md` +
+`<slug>.cache.toml` pair with a matching self-reported fingerprint into whatever directory
+later becomes `options.cache_dir` for a privileged `execution = :never` build can have
+arbitrary content published verbatim — `_write_output_from_cache` copies it through with
+none of `cell_to_markdown`'s REQ-SEC-05 escaping, since that only runs on the
+execute-then-render path. REQ-SEC-03's "no code execution in the privileged job" guarantee
+still holds (a forged entry is a cache *hit*, never triggers `execute_notebook`), but T6
+("third-party content published under repo identity") is not mitigated by anything in
+`src/cache.jl`/`src/build.jl` today. Closing this needs binding a cache entry to *who
+produced it* (REQ-TRUST-02's `PROVENANCE.toml`/CI run ID, or REQ-TRUST-03's build
+attestation) — a stronger hash of the same public inputs cannot fix it. Tracked for M3
+(before the two-job workflow is considered to hold end-to-end) / M3b, not fixed here.
+
+# Known gap: spec.md §9's reference workflow doesn't restore the cache for `:never`
+The example `build-and-deploy` job only restores `docs/src/notebooks` via
+`actions/download-artifact` — it never restores `docs/slate_cache`. As written, that job's
+`execution = :never` call would hit this function's `ArgumentError` on every run, since
+`options.cache_dir` would always be empty. A real M3 workflow needs to either upload/
+download `slate_cache` too, or use `actions/cache` (already sketched for the render job) in
+the deploy job as well. Noted here so it isn't rediscovered the hard way when M3 ships an
+actual `.github/workflows/docs.yml`.
+
 # Effective `show_code`
 A cell's source is shown only when **both** `output_options.show_code` (the site-wide
 default) and the notebook's own resolved `meta.show_code` (REQ-REN-05, from

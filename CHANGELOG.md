@@ -37,11 +37,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `skip = true` notebooks excluded.
 - `build_slates`: the single public orchestration entry point tying discovery, front-matter
   resolution, execution, asset extraction, Markdown rendering, and page ordering together.
+- Composite build cache (ADR-004, `src/cache.jl`, internal): a SHA-256 fingerprint over
+  notebook bytes, resolved environment, Julia/KaimonSlate/DocumenterSlate versions, and
+  render options, backing real `execution = :auto`/`:always`/`:never` semantics in
+  `build_slates` — `:never` (REQ-EXE-10, the privileged deploy job's hermetic build mode)
+  is functional for the first time; a cache miss raises a clear error instead of executing
+  anything.
+- `options.nworkers > 1`: notebooks build across genuinely separate OS processes
+  (`Distributed`, REQ-EXE-07), not threads — required because `redirect_stdout` is
+  process-wide mutable state in Julia, so threaded fan-out would either corrupt output
+  across notebooks or fully serialize the part meant to parallelize. Worker processes are
+  always torn down (`try`/`finally`), and a notebook failure still raises the original
+  `SlateExecutionError`/`SlateExecutionTimeoutError`, not a `Distributed.RemoteException`.
+- Per-notebook `@info` build-status logging (`:cached`/`:executed`/`:failed` + elapsed
+  time), pulled forward from M3's REQ-CI-02.
 
 ### Fixed
 
 - Serialized per-cell stdout capture to prevent a notebook execution that outlives its
   configured `timeout` from corrupting output capture for unrelated, concurrently-running
   executions in the same process.
+- Several tests didn't set an explicit `cache_dir`, so once the cache became load-bearing
+  they started writing a live `slate_cache/` directory into the real repository (relative
+  to the test process's working directory) instead of staying inside their own temp
+  directory.
+
+### Security
+
+- Recorded (not yet fixed — tracked for M3/M3b): `execution = :never`'s cache trust has no
+  cryptographic binding to who produced a cache entry. The fingerprint validates only
+  publicly-reproducible *inputs*, never the paired rendered `.md` body, so a forged cache
+  entry placed into `options.cache_dir` could have arbitrary content published without
+  `cell_to_markdown`'s REQ-SEC-05 escaping ever running on it (T6). REQ-SEC-03's "no code
+  execution in the privileged job" guarantee is unaffected — a forged entry is a cache hit,
+  never an execution. See `build_slates`'s docstring for the full write-up.
 
 [Unreleased]: https://github.com/s-celles/DocumenterSlate.jl/compare/HEAD

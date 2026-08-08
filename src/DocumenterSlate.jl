@@ -19,13 +19,14 @@ makedocs(; sitename = "MyPkg.jl",
          pages = ["Home" => "index.md", "Notebooks" => result.pages])
 ```
 
-[`build_slates`](@ref) is the single public entry point (the M1/N0 tier — spec.md §7/§14):
-it discovers notebooks ([`discover_notebooks`](@ref)), executes each headlessly via
+[`build_slates`](@ref) is the single public entry point (spec.md §7/§14): it discovers
+notebooks ([`discover_notebooks`](@ref)), executes each headlessly via
 [`TextualReplayExporter`](@ref) (built on KaimonSlate's own exported `standalone!`
-primitive, not the interactive hub — see that type's docstring for why), converts cells to
-Documenter Markdown ([`cell_to_markdown`](@ref)), extracts figures
-([`extract_assets!`](@ref)), and orders everything into `.pages` ([`build_pages`](@ref))
-for `makedocs`.
+primitive, not the interactive hub — see that type's docstring for why), caches results by
+a composite fingerprint of every input that affects them (ADR-004), optionally in parallel
+across separate OS processes (`options.nworkers`, REQ-EXE-07), converts cells to Documenter
+Markdown ([`cell_to_markdown`](@ref)), extracts figures ([`extract_assets!`](@ref)), and
+orders everything into `.pages` ([`build_pages`](@ref)) for `makedocs`.
 
 # Where generated files land
 
@@ -44,7 +45,7 @@ See `upstream-bugs.md` (repository root, not shipped in the package) for what wa
 confirmed against upstream source versus what is still open with the KaimonSlate
 maintainer.
 
-# Public API (M1)
+# Public API (M1–M2)
 
 [`SlateBuildOptions`](@ref), [`SlateOutputOptions`](@ref), [`build_slates`](@ref),
 [`discover_notebooks`](@ref), [`resolve_notebook_project`](@ref),
@@ -55,10 +56,25 @@ maintainer.
 [`SlateExecutionTimeoutError`](@ref), [`cell_to_markdown`](@ref),
 [`extract_assets!`](@ref), [`build_pages`](@ref), [`SlateBuildResult`](@ref).
 
-Not yet implemented: the `SlatePlugin <: Documenter.Plugin` / `@slate` expander (N1),
-caching (M2), CI security hardening and the two-job workflow (M3), artifact distribution
-(M3b), and the `:embed`/`:iframe` output formats (M4) — see spec.md §14 for the full
-milestone plan.
+The composite cache (`options.cache_dir`, `options.execution`) and parallel execution
+(`options.nworkers`) internals (`src/cache.jl`) are not exported — they're consumed
+through `SlateBuildOptions`/`build_slates`, not called directly.
+
+**Known limitation** (see [`build_slates`](@ref)'s docstring for the full write-up): a
+cache entry's fingerprint validates only its *inputs* (notebook bytes, environment, tool
+versions, render options), never the paired `.md` body itself — `execution = :never`'s
+trust in `options.cache_dir` has no cryptographic binding to who actually produced an
+entry. This doesn't weaken REQ-SEC-03 (no code execution in a privileged job), but it does
+mean T6 (third-party content published under the repo's identity) isn't mitigated yet.
+Tracked for M3/M3b (REQ-TRUST-02/03), not fixed here.
+
+Not yet implemented: the `SlatePlugin <: Documenter.Plugin` / `@slate` expander (N1), CI
+security hardening and the two-job workflow (M3), artifact distribution (M3b), and the
+`:embed`/`:iframe` output formats (M4) — see spec.md §14 for the full milestone plan.
+Per-notebook environment isolation (REQ-EXE-02 — each notebook running in its own pinned
+project rather than the calling process's) is also not implemented despite
+[`resolve_notebook_project`](@ref) existing; it's currently consumed only as a cache-key
+input.
 """
 module DocumenterSlate
 
