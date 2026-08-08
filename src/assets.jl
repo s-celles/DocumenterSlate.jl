@@ -20,7 +20,7 @@ end
     extract_assets!(executed::ExecutedNotebook, dest_dir::AbstractString) -> Dict{String,String}
 
 Write every code cell's displayable figure output to `dest_dir` (REQ-REN-03), creating it
-if needed. A cell's `.value` is checked against [`_ASSET_MIME_EXTENSIONS`](@ref) in order;
+if needed. A cell's `.value` is checked against `_ASSET_MIME_EXTENSIONS` in order;
 the first MIME type it is `showable` as is written to a deterministically-numbered file
 (`fig-01.png`, `fig-02.svg`, …, numbered across the whole notebook in cell order — not
 per-MIME-type). Cells with an `.error`, a `nothing` `.value`, or a `.value` that isn't

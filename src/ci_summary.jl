@@ -41,7 +41,7 @@ output instead (a real, already-emitted signal, not a parallel bookkeeping path 
 drift from what actually happened).
 
 # Limitation: sequential builds only (`options.nworkers <= 1`)
-Verified empirically, not assumed: `@info` calls made inside a [`_build_parallel!`](@ref)
+Verified empirically, not assumed: `@info` calls made inside a `_build_parallel!`
 `pmap`-dispatched worker task are **not** routed through the calling process's `Logging`
 dispatch — `Distributed` instead forwards each worker's log output as pre-formatted text
 straight to the master's `stdout` (visible in a CI job's raw log either way), bypassing

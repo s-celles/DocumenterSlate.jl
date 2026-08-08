@@ -129,7 +129,7 @@ end
     _build_parallel!(to_build, exporter, options::SlateBuildOptions,
                       output_options::SlateOutputOptions) -> Nothing
 
-Runs [`_build_one_notebook`](@ref) for every `(path, meta)` in `to_build` across
+Runs `_build_one_notebook` for every `(path, meta)` in `to_build` across
 `min(options.nworkers, length(to_build))` genuinely separate OS processes (REQ-EXE-07),
 each spawned with the *same* active project as the caller so `using DocumenterSlate`
 succeeds on every worker.
@@ -152,7 +152,7 @@ docstring) and unaffected by parallelizing the still-shared-project execution.
 # Process lifecycle and error propagation
 `Distributed.addprocs`/`Distributed.rmprocs` are paired in a `try`/`finally` — workers are
 always torn down, even when a notebook build throws, to avoid leaking OS processes.
-[`_build_one_notebook_safe`](@ref) catches every exception on the worker and returns it as
+`_build_one_notebook_safe` catches every exception on the worker and returns it as
 an ordinary value; after `pmap` completes (and workers are torn down), the first caught
 exception, if any, is re-thrown here with its original type intact — `fail_on_error = true`
 still raises a directly-catchable `SlateExecutionError`/`SlateExecutionTimeoutError`, not a
@@ -204,7 +204,7 @@ REQ-INT-02).
 1. [`discover_notebooks`](@ref)`(options)`.
 2. For each discovered path, [`resolve_notebook_meta`](@ref)`(path, options.slate_toml)`
    (front-matter, `docs/slate.toml` overrides).
-3. For every non-`skip` notebook, [`_build_one_notebook`](@ref): resolve the notebook's
+3. For every non-`skip` notebook, `_build_one_notebook`: resolve the notebook's
    pinned environment ([`resolve_notebook_project`](@ref)) and composite cache fingerprint
    (ADR-004), then:
    - **`execution = :auto`** (default): a cache hit copies straight from `options.cache_dir`
@@ -262,7 +262,7 @@ correctly invalidates a stale cache entry rather than silently reusing mismatche
 
 # `nworkers > 1` (REQ-EXE-07)
 Notebooks are built across `min(options.nworkers, <number to build>)` separate OS
-processes via [`_build_parallel!`](@ref) — not threads; see that function's docstring for
+processes via `_build_parallel!` — not threads; see that function's docstring for
 why (`src/execute.jl`'s stdout-capture lock makes threaded fan-out either corrupt output or
 fully serialize, not actually parallelize). Falls back to the plain sequential loop when
 `nworkers <= 1` or there is at most one notebook to build (not worth process-spawn

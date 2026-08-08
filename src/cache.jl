@@ -65,13 +65,13 @@ anything.
 
 # Fields
 - `notebook_sha::String`: hex SHA-256 of the notebook file's raw bytes.
-- `env_fingerprint::String`: hex SHA-256 of [`_env_fingerprint_bytes`](@ref)'s output —
+- `env_fingerprint::String`: hex SHA-256 of `_env_fingerprint_bytes`'s output —
   the resolved project's `Project.toml`(+`Manifest.toml`) bytes, or the notebook's embedded
   `Slate.env` footer text.
 - `julia_version::String`: `string(VERSION)`.
 - `kaimonslate_version::String`, `documenterslate_version::String`: `string(pkgversion(...))`,
-  or `"unknown"` if unavailable (see [`_fallback_version`](@ref)).
-- `render_option_hash::String`: see [`_render_option_hash`](@ref).
+  or `"unknown"` if unavailable (see `_fallback_version`).
+- `render_option_hash::String`: see `_render_option_hash`.
 """
 struct CacheComponents
     notebook_sha::String
@@ -90,7 +90,7 @@ end
 Reads/computes every raw input to a notebook's cache key (ADR-004): the notebook's own
 bytes, its resolved environment's fingerprint, the running Julia/KaimonSlate/
 DocumenterSlate versions, and a hash of the render-affecting options. Impure (reads files,
-`VERSION`, `pkgversion`) by design — kept separate from the pure [`_cache_fingerprint`](@ref)
+`VERSION`, `pkgversion`) by design — kept separate from the pure `_cache_fingerprint`
 so the latter is trivially testable without touching the filesystem.
 """
 function _gather_cache_components(path::AbstractString, project::NotebookProjectResolution,
