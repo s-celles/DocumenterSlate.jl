@@ -51,6 +51,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `SlateExecutionError`/`SlateExecutionTimeoutError`, not a `Distributed.RemoteException`.
 - Per-notebook `@info` build-status logging (`:cached`/`:executed`/`:failed` + elapsed
   time), pulled forward from M3's REQ-CI-02.
+- `collect_build_statuses`/`write_github_step_summary`: taps the per-notebook build-status
+  log into a `$GITHUB_STEP_SUMMARY`-ready Markdown table (REQ-CI-04). Sequential builds
+  only (`options.nworkers <= 1`) — `Distributed` forwards a worker's `@info` as
+  pre-formatted text rather than routing it through the master's `Logging` dispatch, so a
+  parallel build's statuses aren't collectible here, only visible in the raw CI log.
+- `Aqua.jl`/`JET.jl` in the test suite (REQ-TST-03).
+- `docs/` site (dogfooded for this package itself rather than a separate example
+  repository — REQ-DOC-01's literal "separate repo" would mean standing up a second
+  public repo with its own secrets, an external action outside autonomous scope), built
+  by the real two-job reference workflow (`.github/workflows/docs.yml`, REQ-SEC-01/02/03,
+  REQ-CI-01) over two real KaimonSlate notebooks under `docs/notebooks/`.
+- `docs/src/security.md`: states plainly what the CI workflow guarantees today and what
+  it does not yet.
+- `llms.txt`/`llms-full.txt` generated under `docs/src/` before `makedocs` runs (no
+  native Documenter.jl support exists for this, confirmed by checking the latest release
+  and a full-repository search).
 
 ### Fixed
 
@@ -61,6 +77,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   they started writing a live `slate_cache/` directory into the real repository (relative
   to the test process's working directory) instead of staying inside their own temp
   directory.
+- `cell_to_markdown`'s error branch fenced the backtrace but spliced the exception's own
+  message directly into the page as interpretable Markdown (REQ-SEC-05/T3) — an
+  adversarial test now locks in the fenced behavior for both the error and ordinary
+  success paths.
+- `build_pages`' relative paths are relative to `options.output`, not `docs/src/` —
+  `docs/make.jl` now prefixes `"notebooks/"` itself, since only the caller knows its own
+  directory layout (caught by actually running the docs build end to end, not a unit test).
+- Several JET-flagged type-inference gaps in the package's own code (not noise from
+  dependencies): `something(...)` narrowing at a handful of provably-non-`nothing`
+  `RegexMatch`/correlated-return-value sites, an explicitly-typed `[[notebook]]` TOML
+  entry list instead of an `Any`-widened default, and `_build_one_notebook`'s page text
+  built via `IOBuffer` instead of `join` (whose inferred return type widened once that
+  function's `try` body exceeded Julia's inference complexity budget — confirmed via
+  `@code_warntype`, not guessed).
+
+### Changed
+
+- `execute.jl`'s stdout-capture-is-task-local claim was empirically disproven (a leaked
+  timed-out task racing a later notebook's capture in the same process) — see the Fixed
+  entry above this project's M2 line for the serialization fix; this M3 pass found and
+  fixed the remaining downstream type-inference consequences of the same code area.
 
 ### Security
 
@@ -70,6 +107,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   entry placed into `options.cache_dir` could have arbitrary content published without
   `cell_to_markdown`'s REQ-SEC-05 escaping ever running on it (T6). REQ-SEC-03's "no code
   execution in the privileged job" guarantee is unaffected — a forged entry is a cache hit,
-  never an execution. See `build_slates`'s docstring for the full write-up.
+  never an execution. See `build_slates`'s docstring for the full write-up. Refined during
+  M3 planning: the realistic attack for the reference workflow is a sibling notebook in
+  the same `render-notebooks` job writing directly into `cache_dir`, not (only) an
+  external supply chain; partially narrowed by the reference workflow populating the
+  cache only from that run's own render job.
+- `render-notebooks`/`build-and-deploy` (`.github/workflows/docs.yml`) run behind
+  `step-security/harden-runner` in `egress-policy: audit` mode, not yet `block` — an
+  initial `block` attempt with a guessed `allowed-endpoints` list was caught by review
+  before merging (it would have broken every render run: a dead hostname, and missing the
+  actual redirect chain Julia's package client follows). `audit` still provides real
+  monitoring value today; upgrading to `block` needs a real run's confirmed endpoint set
+  first.
+- Recorded, current-backend-specific: `TextualReplayExporter` never reaches KaimonSlate's
+  hub/agent (REQ-SEC-01), confirmed by reading `KaimonSlate.jl` source directly and by a
+  runtime regression test — but this does not extend to a future `HubExporter`, which
+  would reopen the question.
 
 [Unreleased]: https://github.com/s-celles/DocumenterSlate.jl/compare/HEAD
