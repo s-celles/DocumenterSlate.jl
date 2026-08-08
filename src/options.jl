@@ -18,6 +18,11 @@ or destination directory for a given documentation build, so omitting either is 
 - `cache_dir::AbstractString = "slate_cache"`: directory holding the build cache.
 - `nworkers::Integer = 1`: number of notebooks executed in parallel.
 - `fail_on_error::Bool = true`: whether a cell exception aborts the build (REQ-EXE-04/05).
+- `slate_toml::Union{Nothing,AbstractString} = nothing`: path to a `docs/slate.toml`-shaped
+  declarative config (spec §10) providing per-notebook `order`/`skip`/`show_code`/`binds`
+  overrides to [`resolve_notebook_meta`](@ref). Added in M1.13 (not part of spec §7's
+  original sketch, which didn't say how `build_slates` would locate it) — no
+  auto-discovery, must be given explicitly if wanted.
 """
 struct SlateBuildOptions
     source::String
@@ -29,6 +34,7 @@ struct SlateBuildOptions
     cache_dir::String
     nworkers::Int
     fail_on_error::Bool
+    slate_toml::Union{Nothing,String}
 
     function SlateBuildOptions(
         source::AbstractString,
@@ -40,6 +46,7 @@ struct SlateBuildOptions
         cache_dir::AbstractString,
         nworkers::Integer,
         fail_on_error::Bool,
+        slate_toml::Union{Nothing,AbstractString},
     )
         execution in (:auto, :always, :never) || throw(ArgumentError(
             "`execution` must be one of `:auto`, `:always`, `:never`; got `:$execution`",
@@ -47,6 +54,7 @@ struct SlateBuildOptions
         return new(
             String(source), String(output), collect(String, include), collect(String, exclude),
             exporter, execution, String(cache_dir), Int(nworkers), fail_on_error,
+            slate_toml === nothing ? nothing : String(slate_toml),
         )
     end
 end
@@ -61,9 +69,11 @@ function SlateBuildOptions(;
     cache_dir = "slate_cache",
     nworkers::Integer = 1,
     fail_on_error::Bool = true,
+    slate_toml::Union{Nothing,AbstractString} = nothing,
 )
     return SlateBuildOptions(
-        source, output, include, exclude, exporter, execution, cache_dir, nworkers, fail_on_error,
+        source, output, include, exclude, exporter, execution, cache_dir, nworkers,
+        fail_on_error, slate_toml,
     )
 end
 
