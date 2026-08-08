@@ -8,6 +8,11 @@ default:
 test:
     julia --project=. -e 'using Pkg; Pkg.test()'
 
-# Build the documentation. Not set up yet — docs/make.jl does not exist.
+# Render notebooks (execution=:auto, no secrets) then build the docs site
+# (execution=:never, consumes only the cache render just populated) -- the same two steps
+# spec.md §9's two-job CI workflow runs as separate jobs, run here sequentially for a
+# local build. `deploydocs` inside docs/make.jl safely no-ops outside a real CI
+# environment (Documenter's own auto-detection), so this never actually publishes.
 docs:
-    @echo "docs/ is not set up yet — no docs/make.jl in this repo."
+    julia --project=docs docs/render.jl
+    julia --project=docs docs/make.jl

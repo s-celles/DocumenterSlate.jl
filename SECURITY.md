@@ -45,4 +45,8 @@ on scripts you trust.
 This repository's own threat model for notebook execution (untrusted
 contributions, CI isolation, secrets handling, etc.) is documented separately
 in `spec.md` — this file covers the standard vulnerability-disclosure process,
-not the full threat model.
+not the full threat model. For a concrete statement of what the reference CI
+workflow (`.github/workflows/docs.yml`) actually guarantees today — and what
+it does not yet — see the
+["Security posture"](https://s-celles.github.io/DocumenterSlate.jl/dev/security/)
+page in the published documentation (source: `docs/src/security.md`).
