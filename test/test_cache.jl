@@ -179,3 +179,96 @@ end
     # without needing to fake a real package's version resolution.
     @test DocumenterSlate._fallback_version(Main) == "unknown"
 end
+
+@testitem "_write_cache_entry!/_read_cache_entry: round-trips page text and assets" begin
+    using DocumenterSlate
+    using Test
+
+    mktempdir() do dir
+        cache_dir = joinpath(dir, "slate_cache")
+        notebook = joinpath(@__DIR__, "fixtures", "notebooks", "simple.jl")
+        project = resolve_notebook_project(notebook)
+        meta = resolve_notebook_meta(notebook)
+        components = DocumenterSlate._gather_cache_components(
+            notebook, project, SlateOutputOptions(), meta, true)
+        fp = DocumenterSlate._cache_fingerprint(components)
+
+        assets_src = joinpath(dir, "src_assets")
+        mkpath(assets_src)
+        write(joinpath(assets_src, "fig-01.png"), UInt8[1, 2, 3])
+
+        DocumenterSlate._write_cache_entry!(cache_dir, "simple", fp, components,
+                                             "# hello cache", assets_src)
+
+        @test isfile(joinpath(cache_dir, "simple.md"))
+        @test isfile(joinpath(cache_dir, "simple.cache.toml"))
+        @test isfile(joinpath(cache_dir, "assets", "simple", "fig-01.png"))
+
+        entry = DocumenterSlate._read_cache_entry(cache_dir, "simple", fp)
+        @test entry !== nothing
+        @test entry.page_text == "# hello cache"
+        @test entry.assets_dir !== nothing
+        @test read(joinpath(entry.assets_dir, "fig-01.png")) == UInt8[1, 2, 3]
+    end
+end
+
+@testitem "_read_cache_entry: missing .cache.toml returns nothing" begin
+    using DocumenterSlate
+    using Test
+
+    mktempdir() do dir
+        @test DocumenterSlate._read_cache_entry(dir, "nope", "anyfingerprint") === nothing
+    end
+end
+
+@testitem "_read_cache_entry: fingerprint mismatch returns nothing" begin
+    using DocumenterSlate
+    using Test
+
+    mktempdir() do dir
+        cache_dir = joinpath(dir, "cache")
+        notebook = joinpath(@__DIR__, "fixtures", "notebooks", "simple.jl")
+        project = resolve_notebook_project(notebook)
+        meta = resolve_notebook_meta(notebook)
+        components = DocumenterSlate._gather_cache_components(
+            notebook, project, SlateOutputOptions(), meta, true)
+        fp = DocumenterSlate._cache_fingerprint(components)
+
+        DocumenterSlate._write_cache_entry!(cache_dir, "simple", fp, components, "stale content", nothing)
+
+        @test DocumenterSlate._read_cache_entry(cache_dir, "simple", "a-different-fingerprint") === nothing
+    end
+end
+
+@testitem "_read_cache_entry: corrupt .cache.toml returns nothing rather than throwing" begin
+    using DocumenterSlate
+    using Test
+
+    mktempdir() do dir
+        write(joinpath(dir, "broken.md"), "content")
+        write(joinpath(dir, "broken.cache.toml"), "not [ valid toml")
+
+        @test DocumenterSlate._read_cache_entry(dir, "broken", "whatever") === nothing
+    end
+end
+
+@testitem "_write_cache_entry!/_read_cache_entry: cache_dir can be an arbitrary external directory (REQ-CACHE-04)" begin
+    using DocumenterSlate
+    using Test
+
+    mktempdir() do dir
+        external_cache = joinpath(dir, "restored-from-ci-artifact")
+        notebook = joinpath(@__DIR__, "fixtures", "notebooks", "simple.jl")
+        project = resolve_notebook_project(notebook)
+        meta = resolve_notebook_meta(notebook)
+        components = DocumenterSlate._gather_cache_components(
+            notebook, project, SlateOutputOptions(), meta, true)
+        fp = DocumenterSlate._cache_fingerprint(components)
+
+        DocumenterSlate._write_cache_entry!(external_cache, "simple", fp, components, "content", nothing)
+        entry = DocumenterSlate._read_cache_entry(external_cache, "simple", fp)
+
+        @test entry !== nothing
+        @test entry.page_text == "content"
+    end
+end

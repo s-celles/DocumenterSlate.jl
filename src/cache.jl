@@ -118,3 +118,77 @@ function _cache_fingerprint(c::CacheComponents)
     )
     return bytes2hex(SHA.sha256(combined))
 end
+
+"""
+    _write_cache_entry!(cache_dir, slug, fingerprint, components::CacheComponents,
+                         page_text, assets_dir) -> Nothing
+
+Writes one notebook's rendered result into the on-disk cache (REQ-CACHE-01, spec §6's
+`slate_cache/` layout): `<cache_dir>/<slug>.md` (the rendered page text),
+`<cache_dir>/assets/<slug>/` (copied from `assets_dir`, if given and non-empty — no-op
+otherwise, matching `cell_to_markdown`'s existing "no asset, no entry" convention), and
+`<cache_dir>/<slug>.cache.toml` (the fingerprint plus every raw [`CacheComponents`](@ref)
+field, REQ-CACHE-03: "empreinte et ses composantes", human-diffable to see exactly *why* a
+later build considers this entry stale).
+"""
+function _write_cache_entry!(cache_dir::AbstractString, slug::AbstractString,
+                              fingerprint::AbstractString, components::CacheComponents,
+                              page_text::AbstractString, assets_dir::Union{Nothing,AbstractString})
+    isdir(cache_dir) || mkpath(cache_dir)
+    write(joinpath(cache_dir, slug * ".md"), page_text)
+
+    if assets_dir !== nothing && isdir(assets_dir) && !isempty(readdir(assets_dir))
+        cache_assets_dir = joinpath(cache_dir, "assets", slug)
+        isdir(cache_assets_dir) && rm(cache_assets_dir; recursive = true)
+        mkpath(dirname(cache_assets_dir))
+        cp(assets_dir, cache_assets_dir)
+    end
+
+    open(joinpath(cache_dir, slug * ".cache.toml"), "w") do io
+        TOML.print(io, Dict(
+            "fingerprint" => String(fingerprint),
+            "notebook_sha" => components.notebook_sha,
+            "env_fingerprint" => components.env_fingerprint,
+            "julia_version" => components.julia_version,
+            "kaimonslate_version" => components.kaimonslate_version,
+            "documenterslate_version" => components.documenterslate_version,
+            "render_option_hash" => components.render_option_hash,
+        ))
+    end
+    return nothing
+end
+
+"""
+    _read_cache_entry(cache_dir, slug, fingerprint) -> Union{Nothing,NamedTuple}
+
+Returns `(page_text, assets_dir)` (`assets_dir` is `nothing` if the notebook produced no
+assets) when a valid cache entry for `slug` exists under `cache_dir` **and** its recorded
+`fingerprint` matches, else `nothing`. A cache miss must always be a safe, silent signal to
+re-execute (REQ-CACHE-01/02) — this function never throws, whether the entry is simply
+absent, its `.cache.toml` is corrupt/unparseable, or its fingerprint is stale; all three
+collapse to the same `nothing` result. `cache_dir` may be any directory (REQ-CACHE-04: a
+restored CI artifact, a previous `gh-pages` checkout, …), not necessarily one this process
+itself wrote to.
+"""
+function _read_cache_entry(cache_dir::AbstractString, slug::AbstractString,
+                            fingerprint::AbstractString)
+    meta_path = joinpath(cache_dir, slug * ".cache.toml")
+    md_path = joinpath(cache_dir, slug * ".md")
+    (isfile(meta_path) && isfile(md_path)) || return nothing
+
+    meta = try
+        TOML.parsefile(meta_path)
+    catch
+        return nothing
+    end
+    get(meta, "fingerprint", nothing) == fingerprint || return nothing
+
+    page_text = try
+        read(md_path, String)
+    catch
+        return nothing
+    end
+
+    assets_dir = joinpath(cache_dir, "assets", slug)
+    return (page_text = page_text, assets_dir = isdir(assets_dir) ? assets_dir : nothing)
+end
