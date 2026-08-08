@@ -74,6 +74,7 @@ include("execute.jl")
 include("render_markdown.jl")
 include("assets.jl")
 include("pages.jl")
+include("cache.jl")
 include("build.jl")
 
 export SlateBuildOptions, SlateOutputOptions, discover_notebooks,
