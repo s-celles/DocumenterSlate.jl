@@ -18,6 +18,8 @@ or destination directory for a given documentation build, so omitting either is 
 - `cache_dir::AbstractString = "slate_cache"`: directory holding the build cache.
 - `nworkers::Integer = 1`: number of notebooks executed in parallel.
 - `fail_on_error::Bool = true`: whether a cell exception aborts the build (REQ-EXE-04/05).
+- `allow_remote::Bool = false`: whether notebooks containing `region=<name>` cell tags may
+  be built. The default refusal requires an explicit opt-in (REQ-EXE-09).
 - `slate_toml::Union{Nothing,AbstractString} = nothing`: path to a `docs/slate.toml`-shaped
   declarative config (spec §10) providing per-notebook `order`/`skip`/`show_code`/`binds`
   overrides to [`resolve_notebook_meta`](@ref). Added in M1.13 (not part of spec §7's
@@ -34,6 +36,7 @@ struct SlateBuildOptions
     cache_dir::String
     nworkers::Int
     fail_on_error::Bool
+    allow_remote::Bool
     slate_toml::Union{Nothing,String}
 
     function SlateBuildOptions(
@@ -46,6 +49,7 @@ struct SlateBuildOptions
         cache_dir::AbstractString,
         nworkers::Integer,
         fail_on_error::Bool,
+        allow_remote::Bool,
         slate_toml::Union{Nothing,AbstractString},
     )
         execution in (:auto, :always, :never) || throw(ArgumentError(
@@ -54,6 +58,7 @@ struct SlateBuildOptions
         return new(
             String(source), String(output), collect(String, include), collect(String, exclude),
             exporter, execution, String(cache_dir), Int(nworkers), fail_on_error,
+            allow_remote,
             slate_toml === nothing ? nothing : String(slate_toml),
         )
     end
@@ -69,11 +74,12 @@ function SlateBuildOptions(;
     cache_dir = "slate_cache",
     nworkers::Integer = 1,
     fail_on_error::Bool = true,
+    allow_remote::Bool = false,
     slate_toml::Union{Nothing,AbstractString} = nothing,
 )
     return SlateBuildOptions(
         source, output, include, exclude, exporter, execution, cache_dir, nworkers,
-        fail_on_error, slate_toml,
+        fail_on_error, allow_remote, slate_toml,
     )
 end
 

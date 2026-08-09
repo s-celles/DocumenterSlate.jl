@@ -82,4 +82,8 @@ makedocs(;
     pages = pages,
 )
 
-deploydocs(; repo = "github.com/s-celles/DocumenterSlate.jl.git")
+# Documenter warns when `deploydocs` is called outside a recognized CI environment. Keep
+# local `just docs` builds warning-free while retaining deployment in GitHub Actions.
+if get(ENV, "CI", "") == "true"
+    deploydocs(; repo = "github.com/s-celles/DocumenterSlate.jl.git")
+end

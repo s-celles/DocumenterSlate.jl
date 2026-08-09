@@ -12,6 +12,31 @@ function _write_output_from_cache(output_dir::AbstractString, slug::AbstractStri
     return nothing
 end
 
+# Return the distinct `region=<name>` tags declared by a notebook. Use KaimonSlate's parser
+# instead of matching source text so comments and strings containing `region=` cannot trigger
+# the security gate accidentally. This is an authorization check only: the current
+# TextualReplayExporter remains local and never starts KaimonSlate's remote machinery.
+function _remote_region_tags(path::AbstractString)
+    report = KaimonSlate.parse_report(read(path, String))
+    tags = String[]
+    for cell in report.cells, flag in cell.flags
+        tag = String(flag)
+        startswith(tag, "region=") && length(tag) > length("region=") && push!(tags, tag)
+    end
+    return sort!(unique!(tags))
+end
+
+function _check_remote_opt_in(path::AbstractString, options::SlateBuildOptions)
+    options.allow_remote && return nothing
+    tags = _remote_region_tags(path)
+    isempty(tags) && return nothing
+    throw(ArgumentError(
+        "notebook \"$path\" declares remote execution ($(join(tags, ", "))); " *
+        "refusing to build it unless SlateBuildOptions(allow_remote = true) is set " *
+        "explicitly (REQ-EXE-09)",
+    ))
+end
+
 # One notebook's full pipeline: cache lookup (unless `:always`) -> execute on a miss ->
 # render -> write to `options.output` -> refresh the cache. Factored out of `build_slates`'s
 # loop body so M2.5's parallel path can call it identically per-worker. Logs one @info line
@@ -27,6 +52,7 @@ function _build_one_notebook(path::AbstractString, meta::NotebookMeta,
     t0 = time()
     slug = splitext(basename(path))[1]
     try
+        _check_remote_opt_in(path, options)
         project = resolve_notebook_project(path)
         components = _gather_cache_components(path, project, output_options, meta,
                                                options.fail_on_error)
@@ -204,7 +230,8 @@ REQ-INT-02).
 1. [`discover_notebooks`](@ref)`(options)`.
 2. For each discovered path, [`resolve_notebook_meta`](@ref)`(path, options.slate_toml)`
    (front-matter, `docs/slate.toml` overrides).
-3. For every non-`skip` notebook, `_build_one_notebook`: resolve the notebook's
+3. For every non-`skip` notebook, refuse any `region=<name>` tag unless
+   `options.allow_remote == true` (REQ-EXE-09), then `_build_one_notebook`: resolve the notebook's
    pinned environment ([`resolve_notebook_project`](@ref)) and composite cache fingerprint
    (ADR-004), then:
    - **`execution = :auto`** (default): a cache hit copies straight from `options.cache_dir`

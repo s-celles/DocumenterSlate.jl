@@ -73,8 +73,18 @@ fail outright once merged. Shipping a broken block-list is worse than the gap it
 Upgrading to `block` is the natural next step, once a real workflow run's harden-runner
 insights confirm the exact endpoint set actually used — not before. This is a CI-infra
 control, not a `SlateBuildOptions` option — there is no `network = :deny` field on
-[`SlateBuildOptions`](@ref) (spec.md §7's sketch, `allow_remote`, is not implemented either;
-tracked as a gap, not silently assumed done).
+[`SlateBuildOptions`](@ref). The separate `allow_remote = false` default rejects notebooks
+containing `region=<name>` cell tags unless the caller explicitly opts in (REQ-EXE-09); it
+controls declared KaimonSlate remote placement, not arbitrary network access by notebook code.
+
+## Remote-region opt-in (REQ-EXE-09)
+
+Before consulting the cache or executing cells, [`build_slates`](@ref) parses every notebook
+with KaimonSlate's parser and rejects any cell tagged `region=<name>` while
+`SlateBuildOptions.allow_remote == false` (the default). Set `allow_remote = true` only after
+reviewing the notebook's declared placement. The current `TextualReplayExporter` still replays
+cells locally and never starts remote workers; the opt-in preserves the authorization boundary
+for future exporters that can honor region placement.
 
 ## Content escaping and path traversal (REQ-SEC-05/06)
 

@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `SlateBuildOptions.allow_remote` with a secure `false` default: notebooks declaring a
+  `region=<name>` cell tag are rejected before cache lookup or execution unless the caller
+  explicitly opts in (REQ-EXE-09).
 - `SlateBuildOptions` and `SlateOutputOptions`: configuration structs for `build_slates`
   (spec.md §7).
 - `discover_notebooks`: glob-based notebook discovery under a source directory
@@ -70,6 +73,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Local documentation builds no longer emit expected environment warnings: the example
+  notebooks now have an explicit Julia project, and `deploydocs` only runs in CI.
 - Serialized per-cell stdout capture to prevent a notebook execution that outlives its
   configured `timeout` from corrupting output capture for unrelated, concurrently-running
   executions in the same process.

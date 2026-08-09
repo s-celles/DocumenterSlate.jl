@@ -9,6 +9,7 @@
     @test opts.exclude == ["_*.jl"]
     @test opts.execution == :auto
     @test opts.fail_on_error == true
+    @test opts.allow_remote == false
     @test opts.nworkers isa Integer
     @test opts.nworkers >= 1
     @test opts.exporter === nothing
@@ -47,6 +48,7 @@ end
         cache_dir = "custom_cache",
         nworkers = 4,
         fail_on_error = false,
+        allow_remote = true,
     )
 
     @test opts.include == ["*.slate.jl"]
@@ -55,6 +57,7 @@ end
     @test opts.cache_dir == "custom_cache"
     @test opts.nworkers == 4
     @test opts.fail_on_error == false
+    @test opts.allow_remote == true
 end
 
 @testitem "SlateOutputOptions: spec-shaped defaults" begin

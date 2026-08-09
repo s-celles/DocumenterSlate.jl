@@ -235,6 +235,42 @@ end
     end
 end
 
+@testitem "build_slates: remote-region cells are refused by default and require explicit opt-in (REQ-EXE-09)" begin
+    using DocumenterSlate
+    using Test
+
+    mktempdir() do root
+        source = joinpath(root, "notebooks")
+        mkpath(source)
+        notebook = joinpath(source, "remote.jl")
+        write(notebook, """
+        try; import KaimonSlate; catch; error("no runtime"); end; KaimonSlate.standalone!(@__MODULE__; dir=@__DIR__)
+
+        #%% code id=remote_calc region=gpu
+        40 + 2
+        """)
+
+        denied = SlateBuildOptions(; source = source, output = joinpath(root, "denied"),
+                                    cache_dir = joinpath(root, "cache"))
+        err = try
+            build_slates(denied)
+            nothing
+        catch e
+            e
+        end
+        @test err isa ArgumentError
+        @test occursin("region=gpu", sprint(showerror, err))
+        @test occursin("allow_remote = true", sprint(showerror, err))
+        @test !isfile(joinpath(root, "denied", "remote.md"))
+
+        allowed = SlateBuildOptions(; source = source, output = joinpath(root, "allowed"),
+                                     cache_dir = joinpath(root, "cache"), allow_remote = true)
+        result = build_slates(allowed)
+        @test result.pages == ["remote" => "remote.md"]
+        @test occursin("42", read(joinpath(root, "allowed", "remote.md"), String))
+    end
+end
+
 @testitem "build_slates: nworkers=2 produces the same output as nworkers=1 (REQ-EXE-07)" begin
     using DocumenterSlate
     using Distributed
