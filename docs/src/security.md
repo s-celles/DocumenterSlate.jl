@@ -28,10 +28,11 @@ forged `<slug>.md` + matching `<slug>.cache.toml` pair directly, bypassing
 [`cell_to_markdown`](@ref)'s escaping entirely for that page.
 
 This does **not** let a malicious notebook steal secrets or execute code in the privileged
-job — `execution = :never` still never executes anything. It does mean **provenance is not
-yet a guarantee**: closing it needs binding a cache entry to a CI run identity
-(`PROVENANCE.toml`, REQ-TRUST-02, or a build attestation, REQ-TRUST-03), planned for M3b, not
-implemented yet. Mitigate the same way you'd mitigate any other risk from a PR touching
+job — `execution = :never` still never executes anything. Per-notebook `PROVENANCE.toml` files
+now record the source commit and CI run as distribution metadata, but they are generated after
+the cache lookup and are not a cryptographic producer binding. Closing this cache-specific gap
+requires a forge build attestation (REQ-TRUST-03) or an equivalent authenticated handoff.
+Mitigate the same way you'd mitigate any other risk from a PR touching
 `notebooks/`: review those changes at the same rigor as source code (spec.md §12's own T6
 mitigation note makes the same recommendation).
 

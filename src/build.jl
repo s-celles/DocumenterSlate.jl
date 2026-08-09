@@ -1,8 +1,9 @@
 # Copies a cache hit's page text + assets (if any) into the real output directory. Shared
 # by every `execution` mode that can be satisfied by a cache hit (`:auto`, `:never`).
-function _write_output_from_cache(output_dir::AbstractString, slug::AbstractString, cached)
+function _write_output_from_cache(output_dir::AbstractString, slug::AbstractString, cached;
+                                  page_text::AbstractString = cached.page_text)
     isdir(output_dir) || mkpath(output_dir)
-    write(joinpath(output_dir, slug * ".md"), cached.page_text)
+    write(joinpath(output_dir, slug * ".md"), page_text)
     if cached.assets_dir !== nothing
         dest = joinpath(output_dir, "assets", slug)
         isdir(dest) && rm(dest; recursive = true)
@@ -54,6 +55,7 @@ function _build_one_notebook(path::AbstractString, meta::NotebookMeta,
     try
         _check_remote_opt_in(path, options)
         project = resolve_notebook_project(path)
+        distribution = _write_distribution!(path, project, options.output, slug)
         components = _gather_cache_components(path, project, output_options, meta,
                                                options.fail_on_error)
         fingerprint = _cache_fingerprint(components)
@@ -62,7 +64,8 @@ function _build_one_notebook(path::AbstractString, meta::NotebookMeta,
                  _read_cache_entry(options.cache_dir, slug, fingerprint)
 
         if cached !== nothing
-            _write_output_from_cache(options.output, slug, cached)
+            decorated = _decorate_page(cached.page_text, distribution, slug)
+            _write_output_from_cache(options.output, slug, cached; page_text = decorated)
             @info "notebook build" slug status=:cached elapsed_s=round(time() - t0; digits = 3)
             return nothing
         end
@@ -116,7 +119,8 @@ function _build_one_notebook(path::AbstractString, meta::NotebookMeta,
             write(io, part)
         end
         page_text = String(take!(io))
-        write(joinpath(options.output, slug * ".md"), page_text)
+        write(joinpath(options.output, slug * ".md"),
+              _decorate_page(page_text, distribution, slug))
 
         # Refresh the cache on every non-cache-hit build (`:auto` miss, or `:always`) so a
         # *following* `:auto`/`:never` build benefits (REQ-CACHE-01's "réutiliser" invariant
@@ -303,9 +307,9 @@ so worker scheduling never disturbs [`build_pages`](@ref)'s ordering.
 # Scope not yet implemented (raises `ArgumentError` rather than silently mis-behaving)
 - `output_options.format != :documenter` (`:embed`/`:iframe`, REQ-REN-11) — N2 tier, M4.
 
-Provenance footers (REQ-REN-07) and download links (REQ-REN-08) are Should-priority and
-not produced by this milestone either, despite `output_options.provenance`/`.downloads`
-existing as fields already (M1.4) — they are inert. REQ-CACHE-05's `check_slates()`
+Download links and per-artifact provenance (M3b) are generated for every notebook. The
+`output_options.provenance`/`.downloads` selectors and a separate provenance footer
+(REQ-REN-07) remain inert until the configurable expander work in M4. REQ-CACHE-05's `check_slates()`
 non-determinism detector is explicitly deferred past M2 (it needs a second execution to
 diff against the cache, which is exactly the cost `:auto`/`:never` exist to avoid).
 

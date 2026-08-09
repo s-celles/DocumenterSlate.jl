@@ -11,4 +11,9 @@
 
     readme = read(joinpath(root, "README.md"), String)
     @test occursin("https://s-celles.github.io/DocumenterSlate.jl/", readme)
+
+    distribution = joinpath(root, "docs", "src", "distribution.md")
+    @test isfile(distribution)
+    @test occursin("inactive = true", read(distribution, String))
+    @test occursin("\"Distribution\" => \"distribution.md\"", make_source)
 end

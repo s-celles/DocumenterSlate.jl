@@ -22,7 +22,12 @@ result = build_slates(opts)
 # `docs/src/` instead, so the "notebooks/" prefix has to be added here, not assumed away.
 notebook_pages = [title => joinpath("notebooks", relpath) for (title, relpath) in result.pages]
 
-pages = ["Home" => "index.md", "Notebooks" => notebook_pages, "Security" => "security.md"]
+pages = [
+    "Home" => "index.md",
+    "Distribution" => "distribution.md",
+    "Notebooks" => notebook_pages,
+    "Security" => "security.md",
+]
 
 # llms.txt / llms-full.txt (CLAUDE.md convention: generated under docs/, not the repo
 # root). No native Documenter.jl support for this was found (checked the locally cached

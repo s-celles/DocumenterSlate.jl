@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Per-notebook distribution directories with unchanged `.jl` source, resolved environment files,
+  deterministic `.tar.gz` archives, `SHA256SUMS`, and `PROVENANCE.toml` build metadata.
+- A download panel on every generated notebook page with artifact SHA-256 digests, explicit
+  arbitrary-code warnings, and KaimonSlate's `inactive = true` inspection command.
+- Per-notebook local instructions presenting isolated-container, pinned-host, and native-app
+  workflows in increasing order of host exposure.
+- A distribution guide documenting verification, safe inspection, execution risks, and the
+  current limits of provenance metadata.
 - A minimal repository README linking to the published documentation.
 - `SlateBuildOptions.allow_remote` with a secure `false` default: notebooks declaring a
   `region=<name>` cell tag are rejected before cache lookup or execution unless the caller

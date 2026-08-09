@@ -69,8 +69,8 @@ entry. This doesn't weaken REQ-SEC-03 (no code execution in a privileged job), b
 mean T6 (third-party content published under the repo's identity) isn't mitigated yet.
 Tracked for M3/M3b (REQ-TRUST-02/03), not fixed here.
 
-Not yet implemented: the `SlatePlugin <: Documenter.Plugin` / `@slate` expander (N1),
-artifact distribution (M3b), and the `:embed`/`:iframe` output formats (M4) — see spec.md
+Not yet implemented: the `SlatePlugin <: Documenter.Plugin` / `@slate` expander (N1)
+and the `:embed`/`:iframe` output formats (M4) — see spec.md
 §14 for the full milestone plan. CI security hardening and the two-job workflow (M3) are
 implemented (`.github/workflows/docs.yml`, `docs/src/security.md`); the cache-trust known
 limitation above is what's still open from that milestone, not the workflow itself.
@@ -96,6 +96,7 @@ include("render_markdown.jl")
 include("assets.jl")
 include("pages.jl")
 include("cache.jl")
+include("distribution.jl")
 include("build.jl")
 include("ci_summary.jl")
 
