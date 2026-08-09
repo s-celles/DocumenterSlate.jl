@@ -8,4 +8,7 @@
 
     make_source = read(joinpath(root, "docs", "make.jl"), String)
     @test occursin(r"if\s+get\(ENV,\s*\"CI\"", make_source)
+
+    readme = read(joinpath(root, "README.md"), String)
+    @test occursin("https://s-celles.github.io/DocumenterSlate.jl/", readme)
 end

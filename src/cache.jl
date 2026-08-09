@@ -14,6 +14,19 @@ function _fallback_version(m::Module)
     return string(v)
 end
 
+# Package versions alone do not invalidate caches while developing an unreleased
+# `0.x.y-DEV` checkout. Mix a deterministic hash of the loaded DocumenterSlate sources into
+# its build identity so renderer changes cannot silently reuse stale generated Markdown.
+function _documenterslate_build_id()
+    source_dir = dirname(something(pathof(@__MODULE__)))
+    source_files = sort!(filter(path -> endswith(path, ".jl"), readdir(source_dir; join = true)))
+    io = IOBuffer()
+    for path in source_files
+        write(io, basename(path), '\0', read(path), '\0')
+    end
+    return _fallback_version(@__MODULE__) * "+" * bytes2hex(SHA.sha256(take!(io)))
+end
+
 # Bytes that represent "the pinned environment" for a resolved notebook project (ADR-004,
 # revised per upstream-bugs.md §8 Decision A): the real Project.toml (+ Manifest.toml, if
 # present) for an `:external` resolution, or the literal embedded Slate.env footer text for
@@ -69,8 +82,10 @@ anything.
   the resolved project's `Project.toml`(+`Manifest.toml`) bytes, or the notebook's embedded
   `Slate.env` footer text.
 - `julia_version::String`: `string(VERSION)`.
-- `kaimonslate_version::String`, `documenterslate_version::String`: `string(pkgversion(...))`,
-  or `"unknown"` if unavailable (see `_fallback_version`).
+- `kaimonslate_version::String`: `string(pkgversion(...))`, or `"unknown"` if unavailable.
+- `documenterslate_version::String`: package version plus a SHA-256 of the loaded package
+  sources, preventing stale cache hits across code changes made under the same development
+  version.
 - `render_option_hash::String`: see `_render_option_hash`.
 """
 struct CacheComponents
@@ -100,7 +115,7 @@ function _gather_cache_components(path::AbstractString, project::NotebookProject
     env_fingerprint = bytes2hex(SHA.sha256(_env_fingerprint_bytes(project)))
     return CacheComponents(
         notebook_sha, env_fingerprint, string(VERSION),
-        _fallback_version(KaimonSlate), _fallback_version(@__MODULE__),
+        _fallback_version(KaimonSlate), _documenterslate_build_id(),
         _render_option_hash(output_options, meta, fail_on_error),
     )
 end

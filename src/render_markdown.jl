@@ -13,23 +13,25 @@ function _slugify(text::AbstractString)
     return strip(s, '-')
 end
 
-# Prepends `<a id="...">` immediately before every heading line in `text`, so each
-# notebook's headings get a stable, page-unique anchor independent of Documenter's own
-# (page-relative, collision-prone-across-pages) auto-slugging. `anchor_prefix == ""` yields
-# a bare slug (single-notebook / no-collision-risk callers can opt out of prefixing).
+# Rewrites each heading using Documenter's supported `[title](@id anchor)` syntax, so each
+# notebook's headings get a stable, page-unique anchor without leaking a raw `<a>` element
+# into the rendered page. `anchor_prefix == ""` yields a bare slug (single-notebook /
+# no-collision-risk callers can opt out of prefixing).
 function _anchor_annotate_headings(text::AbstractString, anchor_prefix::AbstractString)
     out = String[]
     for line in split(text, '\n')
         m = match(_ATX_HEADING_RE, line)
         if m !== nothing
-            # `_ATX_HEADING_RE`'s two capture groups are both non-optional, so captures[2]
-            # is always populated on a successful match -- `something(...)` narrows the
-            # declared `Union{Nothing,SubString}` element type accordingly.
-            slug = _slugify(something(m.captures[2]))
+            # Both capture groups are non-optional; `something(...)` narrows their declared
+            # `Union{Nothing,SubString}` element type after a successful match.
+            hashes = something(m.captures[1])
+            title = something(m.captures[2])
+            slug = _slugify(title)
             anchor_id = isempty(anchor_prefix) ? slug : anchor_prefix * "-" * slug
-            push!(out, "<a id=\"" * anchor_id * "\"></a>")
+            push!(out, hashes * " [" * title * "](@id " * anchor_id * ")")
+        else
+            push!(out, line)
         end
-        push!(out, line)
     end
     return join(out, '\n')
 end
@@ -48,7 +50,7 @@ Convert one executed cell (REQ-REN-01) into a Documenter-native Markdown fragmen
 # Markdown cells (`cell.kind == :md`)
 Returned as-is (`KaimonSlate.parse_report` already unwraps the `@md\"\"\"…\"\"\"` runnable
 skin, so `cell.source` is already plain Markdown — REQ-REN-02), except each ATX heading
-gets an `<a id="...">` anchor injected immediately before it, prefixed with
+is rewritten with Documenter's `[title](@id anchor)` syntax, prefixed with
 `anchor_prefix` (REQ-REN-09: guarantees uniqueness across notebook pages built into the
 same site, since Documenter's own heading-derived anchors are only guaranteed unique
 within a single generated page). `{{ … }}` markdown interpolation is out of scope here,

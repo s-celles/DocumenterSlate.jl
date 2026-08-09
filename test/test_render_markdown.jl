@@ -8,8 +8,8 @@
 
     md = cell_to_markdown(title_cell; anchor_prefix = "with-roles")
 
-    @test occursin("# A Notebook With Roles", md)
-    @test occursin("<a id=\"with-roles-a-notebook-with-roles\"></a>", md)
+    @test occursin("# [A Notebook With Roles](@id with-roles-a-notebook-with-roles)", md)
+    @test !occursin("<a id=", md)
 end
 
 @testitem "cell_to_markdown: hidecode-tagged code cell omits source, keeps output" begin
@@ -113,8 +113,10 @@ end
     md_a = cell_to_markdown(intro; anchor_prefix = "nb1")
     md_b = cell_to_markdown(intro; anchor_prefix = "nb2")
 
-    @test occursin("<a id=\"nb1-a-simple-notebook\"></a>", md_a)
-    @test occursin("<a id=\"nb2-a-simple-notebook\"></a>", md_b)
+    @test occursin("# [A simple notebook](@id nb1-a-simple-notebook)", md_a)
+    @test occursin("# [A simple notebook](@id nb2-a-simple-notebook)", md_b)
+    @test !occursin("<a id=", md_a)
+    @test !occursin("<a id=", md_b)
     @test md_a != md_b
 end
 

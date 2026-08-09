@@ -12,6 +12,8 @@
 
     @test DocumenterSlate._cache_fingerprint(c1) == DocumenterSlate._cache_fingerprint(c2)
     @test length(DocumenterSlate._cache_fingerprint(c1)) == 64   # hex sha256
+    @test startswith(c1.documenterslate_version, string(pkgversion(DocumenterSlate)) * "+")
+    @test length(last(split(c1.documenterslate_version, "+"))) == 64
 end
 
 @testitem "_cache_fingerprint changes when notebook bytes change" begin

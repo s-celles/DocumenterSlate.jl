@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- A minimal repository README linking to the published documentation.
 - `SlateBuildOptions.allow_remote` with a secure `false` default: notebooks declaring a
   `region=<name>` cell tag are rejected before cache lookup or execution unless the caller
   explicitly opts in (REQ-EXE-09).
@@ -73,6 +74,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Notebook heading anchors now use Documenter's `@id` syntax instead of raw `<a>` elements
+  that could appear as visible text in generated pages.
+- Development cache keys now include a hash of DocumenterSlate's loaded sources, preventing
+  renderer changes under the same `-DEV` version from reusing stale Markdown.
 - Local documentation builds no longer emit expected environment warnings: the example
   notebooks now have an explicit Julia project, and `deploydocs` only runs in CI.
 - Serialized per-cell stdout capture to prevent a notebook execution that outlives its
