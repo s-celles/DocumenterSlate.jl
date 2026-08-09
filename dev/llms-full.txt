@@ -55,6 +55,8 @@ cell_to_markdown
 extract_assets!
 build_pages
 SlateBuildResult
+verify_slate_bundle
+SlateBundleVerification
 collect_build_statuses
 write_github_step_summary
 ```
@@ -82,6 +84,21 @@ sha256sum -c SHA256SUMS
 `PROVENANCE.toml` records the repository, source commit, CI run identifier, build timestamp,
 Julia and package versions, source digest, and manifest digest. A missing CI run identifier is
 recorded honestly as a local build; this metadata is not a cryptographic attestation.
+
+DocumenterSlate can verify either the downloaded directory or its archive without evaluating
+notebook cells or instantiating the environment:
+
+```julia
+using DocumenterSlate
+
+result = verify_slate_bundle("notebook.tar.gz")
+result.artifacts
+result.provenance
+```
+
+Verification rejects missing, extra, modified, duplicated, or dangerously named files. For an
+archive, links and nested paths are rejected before extraction. The source and optional manifest
+digests are also checked against `PROVENANCE.toml`. An integrity failure raises `ArgumentError`.
 
 ## Inspect without evaluating cells
 
@@ -112,7 +129,9 @@ code harmless; review the mount and network permissions as well.
 
 Archives use sorted entries, a zero timestamp, normalized ownership and normalized file modes.
 `SHA256SUMS` covers every artifact except itself. HTML/PDF exports, self-contained KaimonSlate
-bundles, forge attestations, and a public verification API remain later roadmap work.
+bundles, and forge attestations remain later roadmap work. Until attestation authentication is
+implemented, `verify_slate_bundle` rejects an archive containing an attestation rather than
+presenting unverified metadata as trusted.
 
 
 ---
@@ -136,11 +155,11 @@ bundles, forge attestations, and a public verification API remain later roadmap 
 
     | Artifact | SHA-256 |
     |:--|:--|
-    | [`PROVENANCE.toml`](downloads/hello/PROVENANCE.toml) | `40464948bfbe8743344655ce59689029ff15452df034fdbe8648d5575b15b6d6` |
+    | [`PROVENANCE.toml`](downloads/hello/PROVENANCE.toml) | `1bc50b6332f847e0f697b61294f584630ec4b44d1b8e23baf5bae8685dc486d3` |
     | [`Project.toml`](downloads/hello/Project.toml) | `f611f3118041332ea446aa24d11ad03397fcd156b61a97ccd4d0313008befb04` |
     | [`README.md`](downloads/hello/README.md) | `2b51f476d18797ba12bbd186fef23d4696047e2924557922857a3880de9ba0e9` |
     | [`hello.jl`](downloads/hello/hello.jl) | `3efd9ee02987f58d97d230b8355192eb521d6accc4dbf4b18a658ec674034601` |
-    | [`hello.tar.gz`](downloads/hello/hello.tar.gz) | `22023ee783f11d9107110cf11146b7835aa44c57f3da0007cb0627db79d8fa6d` |
+    | [`hello.tar.gz`](downloads/hello/hello.tar.gz) | `6fa20bbceec812fd56b1ee078ee3cf58828da86996f455a8ccca7ca5a14398b5` |
 
 
 # [Hello, DocumenterSlate](@id hello-hello-documenterslate)
@@ -200,11 +219,11 @@ nice to meet you
 
     | Artifact | SHA-256 |
     |:--|:--|
-    | [`PROVENANCE.toml`](downloads/hidden_code_demo/PROVENANCE.toml) | `0170adeb33b13ea5e29b33e76366935f3a16533bf2009fdd913f84979122dfa0` |
+    | [`PROVENANCE.toml`](downloads/hidden_code_demo/PROVENANCE.toml) | `3311e1cb92ab10ad337151ab1efc8ee2e1e67e284957530ac9d036e59bf373a3` |
     | [`Project.toml`](downloads/hidden_code_demo/Project.toml) | `f611f3118041332ea446aa24d11ad03397fcd156b61a97ccd4d0313008befb04` |
     | [`README.md`](downloads/hidden_code_demo/README.md) | `a96d6a64a9ca1ca08b95cc26cdb63606ecb8fb3ec37799d3353bbff105aa1c7f` |
     | [`hidden_code_demo.jl`](downloads/hidden_code_demo/hidden_code_demo.jl) | `9f2a885759e883277fef7053a9e022caeb2ce842ea313800222b46757287ad23` |
-    | [`hidden_code_demo.tar.gz`](downloads/hidden_code_demo/hidden_code_demo.tar.gz) | `dd5c9f92ac5a3ee551ca20685dea71a7d52703aa0f94b077f62d007dfdbb3c74` |
+    | [`hidden_code_demo.tar.gz`](downloads/hidden_code_demo/hidden_code_demo.tar.gz) | `5df6503361c5c1a3a0b8aa14933a922709706b26764a676c78dda312c13afd60` |
 
 
 # [Hiding a cell's source](@id hidden_code_demo-hiding-a-cell-s-source)
