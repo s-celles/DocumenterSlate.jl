@@ -56,6 +56,18 @@
     end
 end
 
+@testitem "distribution panel: escapes notebook names in raw HTML actions" begin
+    using DocumenterSlate
+
+    dist = (relative_directory = "downloads/bad", sha256 = Dict{String,String}())
+    panel = DocumenterSlate._distribution_panel(dist, "bad</code><script>alert(1)</script>")
+    raw_html = split(panel, "```")[2]
+
+    @test !occursin("<script>", raw_html)
+    @test occursin("&lt;script&gt;", raw_html)
+    @test occursin("%3C", raw_html)
+end
+
 @testitem "distribution panel: offers verification and inactive inspection, never one-click execution" begin
     using DocumenterSlate
 
@@ -70,6 +82,10 @@ end
     )
     panel = DocumenterSlate._distribution_panel(dist, "example")
 
+    @test occursin("slate-download-button", panel)
+    @test occursin("download>Download notebook</a>", panel)
+    @test occursin("<details class=\"slate-inspect\">", panel)
+    @test occursin("<summary>Inspect locally</summary>", panel)
     @test occursin("[Download source]", panel)
     @test occursin(".tar.gz", panel)
     @test occursin("sha256sum -c SHA256SUMS", panel)
@@ -78,4 +94,5 @@ end
     @test !occursin("slate://", panel)
     @test !occursin("127.0.0.1", panel)
     @test !occursin("curl", panel)
+    @test !occursin("onclick", panel)
 end

@@ -4,6 +4,10 @@ Every generated notebook page begins with a distribution panel. It links to the 
 source, a reproducible `.tar.gz` archive, the resolved Julia environment, checksums, provenance,
 and local instructions. The source bytes are copied unchanged.
 
+The prominent **Download notebook** action downloads the archive only. **Inspect locally** is a
+collapsed disclosure containing verification and inactive-preview commands; expanding it performs
+no network request and executes nothing on the reader's machine.
+
 ## Verify before opening
 
 Download the notebook directory or archive, then verify the files before using them:

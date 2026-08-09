@@ -142,10 +142,48 @@ slate --own $(source_name)
     return (; directory, relative_directory, sha256)
 end
 
+function _html_text(value::AbstractString)
+    return replace(value, '&' => "&amp;", '<' => "&lt;", '>' => "&gt;", '"' => "&quot;",
+                   '\'' => "&#39;")
+end
+
+function _url_path(value::AbstractString)
+    io = IOBuffer()
+    for byte in codeunits(value)
+        char = Char(byte)
+        if isascii(char) && (isletter(char) || isdigit(char) || char in ('-', '_', '.', '~', '/'))
+            write(io, byte)
+        else
+            print(io, '%', uppercase(string(byte; base = 16, pad = 2)))
+        end
+    end
+    return String(take!(io))
+end
+
 function _distribution_panel(dist, slug::AbstractString)
     relative = replace(dist.relative_directory, '\\' => '/')
     source_name = string(slug, ".jl")::String
+    archive_name = string(slug, ".tar.gz")::String
+    archive_url = _url_path(replace(joinpath(relative, archive_name), '\\' => '/'))
+    safe_archive_name = _html_text(archive_name)
+    safe_source_name = _html_text(source_name)
     io = IOBuffer()
+    println(io, "```@raw html")
+    println(io, "<div class=\"slate-actions\">")
+    println(io, "  <a class=\"button is-link slate-download-button\" href=\"", archive_url,
+            "\" download>Download notebook</a>")
+    println(io, "  <details class=\"slate-inspect\">")
+    println(io, "    <summary>Inspect locally</summary>")
+    println(io, "    <p><strong>Do not run the notebook before reviewing it.</strong> Verify the archive, then use KaimonSlate's inactive view, which does not start a worker or evaluate cells.</p>")
+    println(io, "    <pre><code>using DocumenterSlate")
+    println(io, "verify_slate_bundle(\"", safe_archive_name, "\")</code></pre>")
+    println(io, "    <pre><code>using KaimonSlate")
+    println(io, "KaimonSlate.serve_notebook(\"", safe_source_name,
+            "\"; inactive = true)</code></pre>")
+    println(io, "  </details>")
+    println(io, "</div>")
+    println(io, "```")
+    println(io, "")
     println(io, "!!! warning \"Download and inspect safely\"")
     println(io, "    This notebook is arbitrary code. Instantiating its environment may run package build scripts, and live opening may execute cells.")
     println(io, "")

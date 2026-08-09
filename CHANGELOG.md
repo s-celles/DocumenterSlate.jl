@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   deterministic `.tar.gz` archives, `SHA256SUMS`, and `PROVENANCE.toml` build metadata.
 - A download panel on every generated notebook page with artifact SHA-256 digests, explicit
   arbitrary-code warnings, and KaimonSlate's `inactive = true` inspection command.
+- Distinct `Download notebook` and collapsed `Inspect locally` actions in each notebook panel;
+  neither action launches code or contacts a local service.
 - Per-notebook local instructions presenting isolated-container, pinned-host, and native-app
   workflows in increasing order of host exposure.
 - A distribution guide documenting verification, safe inspection, execution risks, and the
