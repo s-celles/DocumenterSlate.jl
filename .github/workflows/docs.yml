@@ -50,7 +50,7 @@ jobs:
         with:
           egress-policy: audit
       - uses: actions/checkout@v4
-      - uses: julia-actions/setup-julia@v2
+      - uses: julia-actions/setup-julia@v3
         with:
           version: ${{ env.JULIA_VERSION }}
       - uses: actions/cache@v4
@@ -95,7 +95,7 @@ jobs:
         with:
           egress-policy: audit
       - uses: actions/checkout@v4
-      - uses: julia-actions/setup-julia@v2
+      - uses: julia-actions/setup-julia@v3
         with:
           version: ${{ env.JULIA_VERSION }}
       # An artifact, not `actions/cache` here: this must be *exactly* what
