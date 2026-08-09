@@ -73,6 +73,10 @@ Every generated notebook page begins with a distribution panel. It links to the 
 source, a reproducible `.tar.gz` archive, the resolved Julia environment, checksums, provenance,
 and local instructions. The source bytes are copied unchanged.
 
+The prominent **Download notebook** action downloads the archive only. **Inspect locally** is a
+collapsed disclosure containing verification and inactive-preview commands; expanding it performs
+no network request and executes nothing on the reader's machine.
+
 ## Verify before opening
 
 Download the notebook directory or archive, then verify the files before using them:
@@ -139,6 +143,20 @@ presenting unverified metadata as trusted.
 ## Section: Notebooks > Hello, DocumenterSlate
 <!-- Source: notebooks/hello.md -->
 
+```@raw html
+<div class="slate-actions">
+  <a class="button is-link slate-download-button" href="downloads/hello/hello.tar.gz" download>Download notebook</a>
+  <details class="slate-inspect">
+    <summary>Inspect locally</summary>
+    <p><strong>Do not run the notebook before reviewing it.</strong> Verify the archive, then use KaimonSlate's inactive view, which does not start a worker or evaluate cells.</p>
+    <pre><code>using DocumenterSlate
+verify_slate_bundle("hello.tar.gz")</code></pre>
+    <pre><code>using KaimonSlate
+KaimonSlate.serve_notebook("hello.jl"; inactive = true)</code></pre>
+  </details>
+</div>
+```
+
 !!! warning "Download and inspect safely"
     This notebook is arbitrary code. Instantiating its environment may run package build scripts, and live opening may execute cells.
 
@@ -155,11 +173,11 @@ presenting unverified metadata as trusted.
 
     | Artifact | SHA-256 |
     |:--|:--|
-    | [`PROVENANCE.toml`](downloads/hello/PROVENANCE.toml) | `1bc50b6332f847e0f697b61294f584630ec4b44d1b8e23baf5bae8685dc486d3` |
+    | [`PROVENANCE.toml`](downloads/hello/PROVENANCE.toml) | `7ffbee304f02832ae6fcaa842c7c35fe22099a6fd5e75f2dc65bcca1372740ae` |
     | [`Project.toml`](downloads/hello/Project.toml) | `f611f3118041332ea446aa24d11ad03397fcd156b61a97ccd4d0313008befb04` |
     | [`README.md`](downloads/hello/README.md) | `2b51f476d18797ba12bbd186fef23d4696047e2924557922857a3880de9ba0e9` |
     | [`hello.jl`](downloads/hello/hello.jl) | `3efd9ee02987f58d97d230b8355192eb521d6accc4dbf4b18a658ec674034601` |
-    | [`hello.tar.gz`](downloads/hello/hello.tar.gz) | `6fa20bbceec812fd56b1ee078ee3cf58828da86996f455a8ccca7ca5a14398b5` |
+    | [`hello.tar.gz`](downloads/hello/hello.tar.gz) | `4111eb7d0d1169db8d6374fdd183c87e7581b109464b6bbbc28a3ce90c5ffade` |
 
 
 # [Hello, DocumenterSlate](@id hello-hello-documenterslate)
@@ -203,6 +221,20 @@ nice to meet you
 ## Section: Notebooks > Hiding a cell's source
 <!-- Source: notebooks/hidden_code_demo.md -->
 
+```@raw html
+<div class="slate-actions">
+  <a class="button is-link slate-download-button" href="downloads/hidden_code_demo/hidden_code_demo.tar.gz" download>Download notebook</a>
+  <details class="slate-inspect">
+    <summary>Inspect locally</summary>
+    <p><strong>Do not run the notebook before reviewing it.</strong> Verify the archive, then use KaimonSlate's inactive view, which does not start a worker or evaluate cells.</p>
+    <pre><code>using DocumenterSlate
+verify_slate_bundle("hidden_code_demo.tar.gz")</code></pre>
+    <pre><code>using KaimonSlate
+KaimonSlate.serve_notebook("hidden_code_demo.jl"; inactive = true)</code></pre>
+  </details>
+</div>
+```
+
 !!! warning "Download and inspect safely"
     This notebook is arbitrary code. Instantiating its environment may run package build scripts, and live opening may execute cells.
 
@@ -219,11 +251,11 @@ nice to meet you
 
     | Artifact | SHA-256 |
     |:--|:--|
-    | [`PROVENANCE.toml`](downloads/hidden_code_demo/PROVENANCE.toml) | `3311e1cb92ab10ad337151ab1efc8ee2e1e67e284957530ac9d036e59bf373a3` |
+    | [`PROVENANCE.toml`](downloads/hidden_code_demo/PROVENANCE.toml) | `99fe26e40ed61152e770a4e7f45505e2fac107d7a90ed49451a9e18e6b0c1dba` |
     | [`Project.toml`](downloads/hidden_code_demo/Project.toml) | `f611f3118041332ea446aa24d11ad03397fcd156b61a97ccd4d0313008befb04` |
     | [`README.md`](downloads/hidden_code_demo/README.md) | `a96d6a64a9ca1ca08b95cc26cdb63606ecb8fb3ec37799d3353bbff105aa1c7f` |
     | [`hidden_code_demo.jl`](downloads/hidden_code_demo/hidden_code_demo.jl) | `9f2a885759e883277fef7053a9e022caeb2ce842ea313800222b46757287ad23` |
-    | [`hidden_code_demo.tar.gz`](downloads/hidden_code_demo/hidden_code_demo.tar.gz) | `5df6503361c5c1a3a0b8aa14933a922709706b26764a676c78dda312c13afd60` |
+    | [`hidden_code_demo.tar.gz`](downloads/hidden_code_demo/hidden_code_demo.tar.gz) | `7f1ed7d5494149289cc71e6820e648882f90afdc4ceaef8958807d626649e6be` |
 
 
 # [Hiding a cell's source](@id hidden_code_demo-hiding-a-cell-s-source)
