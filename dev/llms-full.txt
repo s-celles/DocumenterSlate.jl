@@ -65,16 +65,14 @@ write_github_step_summary
 ## Section: Notebooks > Hello, DocumenterSlate
 <!-- Source: notebooks/hello.md -->
 
-<a id="hello-hello-documenterslate"></a>
-# Hello, DocumenterSlate
+# [Hello, DocumenterSlate](@id hello-hello-documenterslate)
 
 This page is not a mockup — it is a real [KaimonSlate.jl](https://github.com/kahliburke/KaimonSlate.jl)
 notebook (`docs/notebooks/hello.jl` in this repository), executed headlessly by
 [`build_slates`](@ref) and rendered into this Documenter page, exactly the way a package
 maintainer would use `DocumenterSlate.jl` for their own tutorials.
 
-<a id="hello-a-small-computation"></a>
-## A small computation
+## [A small computation](@id hello-a-small-computation)
 
 The cell below runs in a fresh Julia module, with its source shown above its output —
 `show_code` defaults to `true` (REQ-REN-05).
@@ -108,8 +106,7 @@ nice to meet you
 ## Section: Notebooks > Hiding a cell's source
 <!-- Source: notebooks/hidden_code_demo.md -->
 
-<a id="hidden_code_demo-hiding-a-cell-s-source"></a>
-# Hiding a cell's source
+# [Hiding a cell's source](@id hidden_code_demo-hiding-a-cell-s-source)
 
 A code cell tagged `hidecode` keeps its output on the page while hiding its source — useful
 when the *result* matters to the reader but the mechanics of producing it would be noise
