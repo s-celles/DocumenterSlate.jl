@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `verify_slate_bundle` and `SlateBundleVerification`: verify exhaustive artifact checksums and
+  provenance coherence for a distribution directory or safely extracted `.tar.gz`, without
+  executing notebook code.
 - Per-notebook distribution directories with unchanged `.jl` source, resolved environment files,
   deterministic `.tar.gz` archives, `SHA256SUMS`, and `PROVENANCE.toml` build metadata.
 - A download panel on every generated notebook page with artifact SHA-256 digests, explicit

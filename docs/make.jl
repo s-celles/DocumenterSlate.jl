@@ -80,6 +80,7 @@ end
 makedocs(;
     sitename = "DocumenterSlate.jl",
     modules = [DocumenterSlate],
+    format = Documenter.HTML(; edit_link = "main"),
     # `:exports`, not the default `:all` -- this package's many internal (`_`-prefixed)
     # helper functions carry docstrings for maintainers reading the source, but were never
     # meant to be part of the public doc site's `@docs`/cross-reference graph.

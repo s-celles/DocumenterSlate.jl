@@ -8,6 +8,7 @@
 
     make_source = read(joinpath(root, "docs", "make.jl"), String)
     @test occursin(r"if\s+get\(ENV,\s*\"CI\"", make_source)
+    @test occursin("edit_link = \"main\"", make_source)
 
     readme = read(joinpath(root, "README.md"), String)
     @test occursin("https://s-celles.github.io/DocumenterSlate.jl/", readme)
@@ -16,4 +17,5 @@
     @test isfile(distribution)
     @test occursin("inactive = true", read(distribution, String))
     @test occursin("\"Distribution\" => \"distribution.md\"", make_source)
+    @test occursin("verify_slate_bundle", read(distribution, String))
 end

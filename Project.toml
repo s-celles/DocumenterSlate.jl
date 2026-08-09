@@ -4,18 +4,22 @@ authors = ["Sébastien Celles <s.celles@gmail.com>"]
 version = "0.1.0-DEV"
 
 [deps]
+CodecZlib = "944b1d66-785c-5afd-91f1-9de20f533193"
 Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 KaimonSlate = "f7b954f5-0334-4562-ac21-b005218ce1da"
 Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
 SHA = "ea8e919c-243c-51af-8825-aaa63cd721ce"
+Tar = "a4e569a6-e804-4fa4-b0f3-eef7a1d5b13e"
 TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 
 [compat]
+CodecZlib = "0.7"
 Distributed = "1"
 Documenter = "1"
 KaimonSlate = "1"
 Logging = "1"
 SHA = "0.7"
+Tar = "1"
 TOML = "1"
 julia = "1.12"

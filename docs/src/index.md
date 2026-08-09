@@ -49,6 +49,8 @@ cell_to_markdown
 extract_assets!
 build_pages
 SlateBuildResult
+verify_slate_bundle
+SlateBundleVerification
 collect_build_statuses
 write_github_step_summary
 ```

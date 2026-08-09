@@ -16,6 +16,21 @@ sha256sum -c SHA256SUMS
 Julia and package versions, source digest, and manifest digest. A missing CI run identifier is
 recorded honestly as a local build; this metadata is not a cryptographic attestation.
 
+DocumenterSlate can verify either the downloaded directory or its archive without evaluating
+notebook cells or instantiating the environment:
+
+```julia
+using DocumenterSlate
+
+result = verify_slate_bundle("notebook.tar.gz")
+result.artifacts
+result.provenance
+```
+
+Verification rejects missing, extra, modified, duplicated, or dangerously named files. For an
+archive, links and nested paths are rejected before extraction. The source and optional manifest
+digests are also checked against `PROVENANCE.toml`. An integrity failure raises `ArgumentError`.
+
 ## Inspect without evaluating cells
 
 A KaimonSlate notebook is plain Julia source, so reading the `.jl` file is the safest first step.
@@ -45,4 +60,6 @@ code harmless; review the mount and network permissions as well.
 
 Archives use sorted entries, a zero timestamp, normalized ownership and normalized file modes.
 `SHA256SUMS` covers every artifact except itself. HTML/PDF exports, self-contained KaimonSlate
-bundles, forge attestations, and a public verification API remain later roadmap work.
+bundles, and forge attestations remain later roadmap work. Until attestation authentication is
+implemented, `verify_slate_bundle` rejects an archive containing an attestation rather than
+presenting unverified metadata as trusted.

@@ -45,7 +45,7 @@ See `upstream-bugs.md` (repository root, not shipped in the package) for what wa
 confirmed against upstream source versus what is still open with the KaimonSlate
 maintainer.
 
-# Public API (M1–M3)
+# Public API (M1–M4)
 
 [`SlateBuildOptions`](@ref), [`SlateOutputOptions`](@ref), [`build_slates`](@ref),
 [`discover_notebooks`](@ref), [`resolve_notebook_project`](@ref),
@@ -55,6 +55,7 @@ maintainer.
 [`ExecutedNotebook`](@ref), [`CellResult`](@ref), [`SlateExecutionError`](@ref),
 [`SlateExecutionTimeoutError`](@ref), [`cell_to_markdown`](@ref),
 [`extract_assets!`](@ref), [`build_pages`](@ref), [`SlateBuildResult`](@ref),
+[`verify_slate_bundle`](@ref), [`SlateBundleVerification`](@ref),
 [`collect_build_statuses`](@ref), [`write_github_step_summary`](@ref).
 
 The composite cache (`options.cache_dir`, `options.execution`) and parallel execution
@@ -81,9 +82,11 @@ input.
 """
 module DocumenterSlate
 
+import CodecZlib
 import Distributed
 import KaimonSlate
 import Logging
+import Tar
 import TOML
 
 include("options.jl")
@@ -97,6 +100,7 @@ include("assets.jl")
 include("pages.jl")
 include("cache.jl")
 include("distribution.jl")
+include("verify_bundle.jl")
 include("build.jl")
 include("ci_summary.jl")
 
@@ -109,6 +113,7 @@ export SlateBuildOptions, SlateOutputOptions, discover_notebooks,
        cell_to_markdown, extract_assets!,
        build_pages, SlateBuildResult,
        build_slates,
+       verify_slate_bundle, SlateBundleVerification,
        collect_build_statuses, write_github_step_summary
 
 end

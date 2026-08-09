@@ -8,3 +8,6 @@ usage, examples, and the project's security model.
 
 Generated notebook pages provide verified source downloads, reproducible archives, provenance,
 and a KaimonSlate inspection command that does not evaluate notebook cells.
+
+Verify a downloaded directory or archive before inspection with
+`verify_slate_bundle("notebook.tar.gz")`.
