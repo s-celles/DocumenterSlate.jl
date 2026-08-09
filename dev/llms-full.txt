@@ -62,8 +62,86 @@ write_github_step_summary
 
 ---
 
+## Section: Distribution
+<!-- Source: distribution.md -->
+
+# Download and inspect notebooks
+
+Every generated notebook page begins with a distribution panel. It links to the original `.jl`
+source, a reproducible `.tar.gz` archive, the resolved Julia environment, checksums, provenance,
+and local instructions. The source bytes are copied unchanged.
+
+## Verify before opening
+
+Download the notebook directory or archive, then verify the files before using them:
+
+```sh
+sha256sum -c SHA256SUMS
+```
+
+`PROVENANCE.toml` records the repository, source commit, CI run identifier, build timestamp,
+Julia and package versions, source digest, and manifest digest. A missing CI run identifier is
+recorded honestly as a local build; this metadata is not a cryptographic attestation.
+
+## Inspect without evaluating cells
+
+A KaimonSlate notebook is plain Julia source, so reading the `.jl` file is the safest first step.
+KaimonSlate can also serve a static inspection view without starting a worker or evaluating cells:
+
+```julia
+using KaimonSlate
+KaimonSlate.serve_notebook("notebook.jl"; inactive = true)
+```
+
+This deliberately is not a one-click launch mechanism. The documentation never emits a custom
+URL scheme, contacts a local server, or suggests piping a remote download into Julia.
+
+## Run deliberately
+
+The downloaded `README.md` presents three routes in increasing order of host exposure:
+
+1. a Podman container using the recorded Julia minor version;
+2. the published `Project.toml` and `Manifest.toml` on the host;
+3. the native `slate` application.
+
+Instantiating a Julia environment can run package build scripts. Opening a notebook in live mode
+can execute arbitrary code. A container reduces access to the host, but it does not make untrusted
+code harmless; review the mount and network permissions as well.
+
+## Reproducibility and current scope
+
+Archives use sorted entries, a zero timestamp, normalized ownership and normalized file modes.
+`SHA256SUMS` covers every artifact except itself. HTML/PDF exports, self-contained KaimonSlate
+bundles, forge attestations, and a public verification API remain later roadmap work.
+
+
+---
+
 ## Section: Notebooks > Hello, DocumenterSlate
 <!-- Source: notebooks/hello.md -->
+
+!!! warning "Download and inspect safely"
+    This notebook is arbitrary code. Instantiating its environment may run package build scripts, and live opening may execute cells.
+
+    [Download source](downloads/hello/hello.jl) · [Checksums](downloads/hello/SHA256SUMS) · [Provenance](downloads/hello/PROVENANCE.toml) · [Local instructions](downloads/hello/README.md)
+
+    Verify after downloading the directory: `sha256sum -c SHA256SUMS`.
+
+    Inspect without starting a worker or executing cells:
+
+    ```julia
+    using KaimonSlate
+    KaimonSlate.serve_notebook("hello.jl"; inactive = true)
+    ```
+
+    | Artifact | SHA-256 |
+    |:--|:--|
+    | [`PROVENANCE.toml`](downloads/hello/PROVENANCE.toml) | `40464948bfbe8743344655ce59689029ff15452df034fdbe8648d5575b15b6d6` |
+    | [`Project.toml`](downloads/hello/Project.toml) | `f611f3118041332ea446aa24d11ad03397fcd156b61a97ccd4d0313008befb04` |
+    | [`README.md`](downloads/hello/README.md) | `2b51f476d18797ba12bbd186fef23d4696047e2924557922857a3880de9ba0e9` |
+    | [`hello.jl`](downloads/hello/hello.jl) | `3efd9ee02987f58d97d230b8355192eb521d6accc4dbf4b18a658ec674034601` |
+    | [`hello.tar.gz`](downloads/hello/hello.tar.gz) | `22023ee783f11d9107110cf11146b7835aa44c57f3da0007cb0627db79d8fa6d` |
+
 
 # [Hello, DocumenterSlate](@id hello-hello-documenterslate)
 
@@ -105,6 +183,29 @@ nice to meet you
 
 ## Section: Notebooks > Hiding a cell's source
 <!-- Source: notebooks/hidden_code_demo.md -->
+
+!!! warning "Download and inspect safely"
+    This notebook is arbitrary code. Instantiating its environment may run package build scripts, and live opening may execute cells.
+
+    [Download source](downloads/hidden_code_demo/hidden_code_demo.jl) · [Checksums](downloads/hidden_code_demo/SHA256SUMS) · [Provenance](downloads/hidden_code_demo/PROVENANCE.toml) · [Local instructions](downloads/hidden_code_demo/README.md)
+
+    Verify after downloading the directory: `sha256sum -c SHA256SUMS`.
+
+    Inspect without starting a worker or executing cells:
+
+    ```julia
+    using KaimonSlate
+    KaimonSlate.serve_notebook("hidden_code_demo.jl"; inactive = true)
+    ```
+
+    | Artifact | SHA-256 |
+    |:--|:--|
+    | [`PROVENANCE.toml`](downloads/hidden_code_demo/PROVENANCE.toml) | `0170adeb33b13ea5e29b33e76366935f3a16533bf2009fdd913f84979122dfa0` |
+    | [`Project.toml`](downloads/hidden_code_demo/Project.toml) | `f611f3118041332ea446aa24d11ad03397fcd156b61a97ccd4d0313008befb04` |
+    | [`README.md`](downloads/hidden_code_demo/README.md) | `a96d6a64a9ca1ca08b95cc26cdb63606ecb8fb3ec37799d3353bbff105aa1c7f` |
+    | [`hidden_code_demo.jl`](downloads/hidden_code_demo/hidden_code_demo.jl) | `9f2a885759e883277fef7053a9e022caeb2ce842ea313800222b46757287ad23` |
+    | [`hidden_code_demo.tar.gz`](downloads/hidden_code_demo/hidden_code_demo.tar.gz) | `dd5c9f92ac5a3ee551ca20685dea71a7d52703aa0f94b077f62d007dfdbb3c74` |
+
 
 # [Hiding a cell's source](@id hidden_code_demo-hiding-a-cell-s-source)
 
@@ -165,10 +266,11 @@ forged `<slug>.md` + matching `<slug>.cache.toml` pair directly, bypassing
 [`cell_to_markdown`](@ref)'s escaping entirely for that page.
 
 This does **not** let a malicious notebook steal secrets or execute code in the privileged
-job — `execution = :never` still never executes anything. It does mean **provenance is not
-yet a guarantee**: closing it needs binding a cache entry to a CI run identity
-(`PROVENANCE.toml`, REQ-TRUST-02, or a build attestation, REQ-TRUST-03), planned for M3b, not
-implemented yet. Mitigate the same way you'd mitigate any other risk from a PR touching
+job — `execution = :never` still never executes anything. Per-notebook `PROVENANCE.toml` files
+now record the source commit and CI run as distribution metadata, but they are generated after
+the cache lookup and are not a cryptographic producer binding. Closing this cache-specific gap
+requires a forge build attestation (REQ-TRUST-03) or an equivalent authenticated handoff.
+Mitigate the same way you'd mitigate any other risk from a PR touching
 `notebooks/`: review those changes at the same rigor as source code (spec.md §12's own T6
 mitigation note makes the same recommendation).
 

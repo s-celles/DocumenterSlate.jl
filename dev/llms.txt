@@ -3,6 +3,7 @@
 
 ## Documentation Sections
 - [Home](index.html)
+- [Distribution](distribution.html)
 - [Notebooks > Hello, DocumenterSlate](notebooks/hello.html)
 - [Notebooks > Hiding a cell's source](notebooks/hidden_code_demo.html)
 - [Security](security.html)

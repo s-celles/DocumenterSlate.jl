@@ -1,0 +1,11 @@
+repository = "s-celles/DocumenterSlate.jl"
+source_sha256 = "3efd9ee02987f58d97d230b8355192eb521d6accc4dbf4b18a658ec674034601"
+julia_version = "1.12.6"
+git_sha = "543ea169184a524b7df48a365818b4b65dd54326"
+environment_kind = "external"
+run_id = "31336690154"
+build_timestamp = "2026-08-09T23:22:57+02:00"
+documenterslate_version = "0.1.0-DEV+7dc48164cfe300cd2a2a77847a8df4e59a0248318fef3bb5ff209833226d833e"
+manifest_sha256 = ""
+ci_produced = true
+kaimonslate_version = "1.0.0"
