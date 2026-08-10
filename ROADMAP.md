@@ -31,8 +31,8 @@ remaining trust boundary and embedded-rendering work is complete.
    KaimonSlate bundle downloads when the upstream export contract is stable.
 4. **Finish configurable output controls.** Make `provenance`, `downloads`, `interactivity`, and
    `assets = :base64` effective rather than accepted-but-inert options.
-5. **Expand the end-to-end example.** Cover a table, CairoMakie output, and ECharts output, and add
-   a generated `Dockerfile` or `devcontainer.json` to every runnable bundle.
+5. **Expand the end-to-end example.** Cover a table, CairoMakie output, and ECharts output. Every
+   bundle now includes a generated `Dockerfile` and `devcontainer.json` for inactive inspection.
 6. **Network enforcement.** Move harden-runner from audit to a tested allowlisted blocking policy.
 7. **Optional follow-ups.** Add `check_slates()`, `@slate-index`, GitLab CI, PURL dependency
    inventories, third-party author indicators, and Codespaces links.

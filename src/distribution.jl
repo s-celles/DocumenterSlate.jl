@@ -71,6 +71,25 @@ function _write_distribution!(notebook_path::AbstractString,
         end
     end
 
+    dockerfile = """FROM julia:$(VERSION.major).$(VERSION.minor)
+WORKDIR /work
+COPY . /work
+RUN julia --project=. -e 'using Pkg; Pkg.instantiate()'
+EXPOSE 8765
+ENTRYPOINT ["julia", "--project=.", "-e", "using KaimonSlate; KaimonSlate.serve_notebook(ARGS[1]; host=\\\"0.0.0.0\\\", inactive = true)"]
+CMD [$(repr(source_name))]
+"""
+    write(joinpath(directory, "Dockerfile"), dockerfile)
+
+    devcontainer = """{
+  "name": $(repr("$(slug) notebook inspection")),
+  "build": { "dockerfile": "Dockerfile" },
+  "forwardPorts": [8765],
+  "remoteUser": "root"
+}
+"""
+    write(joinpath(directory, "devcontainer.json"), devcontainer)
+
     readme = """# $(slug) — local inspection
 
 This directory contains untrusted notebook code. Verify the files before opening them.
@@ -92,13 +111,15 @@ KaimonSlate.serve_notebook(\"$(source_name)\"; inactive = true)
 
 ## 1. Isolated container (recommended)
 
-This keeps notebook execution out of the host, but package installation still executes code in
-the container:
+This keeps package installation and notebook inspection out of the host. The image opens the
+notebook in inactive mode; it does not evaluate cells:
 
 ```sh
-podman run --rm -it -p 8765:8765 -v \"\$PWD:/work:Z\" -w /work julia:$(VERSION.major).$(VERSION.minor) \\
-  julia --project=. -e 'using Pkg; Pkg.instantiate(); using KaimonSlate; KaimonSlate.serve_notebook(\"$(source_name)\"; host=\"0.0.0.0\")'
+podman build -t $(slug)-inspect .
+podman run --rm -it -p 8765:8765 $(slug)-inspect
 ```
+
+Alternatively, open `devcontainer.json` in a compatible editor.
 
 ## 2. Pinned host environment
 

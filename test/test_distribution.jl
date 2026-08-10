@@ -25,6 +25,12 @@
         @test isfile(joinpath(dist.directory, "Project.toml"))
         @test isfile(joinpath(dist.directory, "Manifest.toml"))
         @test isfile(joinpath(dist.directory, "example.tar.gz"))
+        @test isfile(joinpath(dist.directory, "Dockerfile"))
+        @test isfile(joinpath(dist.directory, "devcontainer.json"))
+        @test occursin("julia:1.12", read(joinpath(dist.directory, "Dockerfile"), String))
+        @test occursin("inactive = true", read(joinpath(dist.directory, "Dockerfile"), String))
+        @test occursin("host=\\\"0.0.0.0\\\"",
+                       read(joinpath(dist.directory, "Dockerfile"), String))
 
         provenance = TOML.parsefile(joinpath(dist.directory, "PROVENANCE.toml"))
         @test provenance["repository"] == "s-celles/DocumenterSlate.jl"
