@@ -12,6 +12,7 @@
     result = build_pages(entries)
 
     @test result isa SlateBuildResult
+    @test result.output_dir === nothing
     titles = first.(result.pages)
     relpaths = last.(result.pages)
 

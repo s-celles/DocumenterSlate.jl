@@ -316,5 +316,6 @@ function build_slates(options::SlateBuildOptions,
         end
     end
 
-    return build_pages(entries)
+    pages = build_pages(entries)
+    return SlateBuildResult(pages.pages, options.output)
 end

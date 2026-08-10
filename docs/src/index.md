@@ -30,6 +30,18 @@ makedocs(; sitename = "MyPkg.jl", plugins = [SlatePlugin(result)],
 Each cache miss runs in a separate Julia process with the notebook's adjacent project activated.
 The parent environment is denied by default; `worker_environment` is the explicit allowlist.
 
+To embed a pre-rendered notebook inside an authored page instead of adding it as a standalone page,
+install `SlatePlugin(result)` as above and use:
+
+````markdown
+```@slate
+notebook = "analysis.jl"
+```
+````
+
+Use `@slate-download` with the same `notebook = "analysis.jl"` configuration when the authored
+page should contain only the download and inactive-inspection panel.
+
 ## Public API
 
 ```@docs

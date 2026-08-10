@@ -9,10 +9,17 @@ Result of ordering a set of notebooks into Documenter `pages` entries
   insertable into `makedocs(; pages = ...)` (spec §7). Directly `Vector{Pair{String,String}}`
   rather than nesting under a section name — spec §7's example wraps it itself
   (`"Notebooks" => slates.pages`), so this type doesn't presume a section title.
+- `output_dir::Union{Nothing,String}`: absolute directory containing the rendered pages when the
+  result came from [`build_slates`](@ref); used by [`SlatePlugin`](@ref)'s `@slate` expander.
 """
 struct SlateBuildResult
     pages::Vector{Pair{String,String}}
+    output_dir::Union{Nothing,String}
 end
+
+SlateBuildResult(pages::Vector{Pair{String,String}}) = SlateBuildResult(pages, nothing)
+SlateBuildResult(pages::Vector{Pair{String,String}}, output_dir::AbstractString) =
+    SlateBuildResult(pages, abspath(output_dir))
 
 """
     build_pages(entries) -> SlateBuildResult

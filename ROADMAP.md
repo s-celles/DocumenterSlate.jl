@@ -24,9 +24,9 @@ remaining trust boundary and embedded-rendering work is complete.
    detect corruption and bind transport to a workflow run, but a notebook process still shares the
    render job's filesystem identity. Add an OS sandbox boundary before claiming protection against
    a malicious notebook deliberately rewriting another cache entry.
-2. **Complete M4 Documenter integration.** Implement `SlatePlugin`, `@slate`, and
-   `@slate-download` without relying on unstable Documenter internals where a public extension
-   point is available. `SlatePlugin` itself is complete; the two expanders remain.
+2. **Maintain M4 Documenter integration.** `SlatePlugin`, `@slate`, and `@slate-download` are
+   complete. Keep the selector-specific compatibility surface isolated and covered by end-to-end
+   Documenter tests while supported Documenter 1.x versions evolve.
 3. **Embedded outputs.** Implement self-contained HTML export and `format = :iframe`; add PDF and
    KaimonSlate bundle downloads when the upstream export contract is stable.
 4. **Finish configurable output controls.** Make `provenance`, `downloads`, `interactivity`, and

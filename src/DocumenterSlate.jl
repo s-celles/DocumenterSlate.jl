@@ -87,6 +87,8 @@ import Distributed
 import Documenter
 import KaimonSlate
 import Logging
+import Markdown
+import MarkdownAST
 import Pkg
 import Serialization
 import Tar

@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   in the build cache and published with every downloadable notebook bundle.
 - `SlatePlugin <: Documenter.Plugin`, carrying a `SlateBuildResult` through Documenter's supported
   `plugins` interface and ready for the M4 expanders.
+- A native `@slate` Documenter expander for embedding a pre-rendered notebook inside an authored
+  documentation page while retaining searchable headings and Markdown structure.
+- A native `@slate-download` expander for inserting a notebook's checksum-backed download and
+  inactive-inspection panel into an authored page.
 - A per-notebook `Dockerfile` and `devcontainer.json` in every distribution archive, defaulting to
   KaimonSlate's inactive inspection mode rather than cell execution.
 - `verify_slate_bundle` and `SlateBundleVerification`: verify exhaustive artifact checksums and
