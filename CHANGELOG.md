@@ -93,6 +93,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Isolated workers bootstrap DocumenterSlate from the caller's already-instantiated project,
+  allowing clean documentation runners without an incidental root `Manifest.toml`.
 - Notebook heading anchors now use Documenter's `@id` syntax instead of raw `<a>` elements
   that could appear as visible text in generated pages.
 - Development cache keys now include a hash of DocumenterSlate's loaded sources, preventing

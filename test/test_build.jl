@@ -75,6 +75,13 @@ end
     end
 end
 
+@testitem "isolated worker bootstraps from the instantiated caller project" begin
+    using DocumenterSlate
+    using Test
+
+    @test DocumenterSlate._worker_bootstrap_project() == dirname(Base.active_project())
+end
+
 @testitem "build_slates: timeout terminates the isolated notebook process" begin
     using DocumenterSlate
     using Test

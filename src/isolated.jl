@@ -79,6 +79,8 @@ function _isolated_environment(explicit::Dict{String,String})
     return environment
 end
 
+_worker_bootstrap_project() = dirname(something(Base.active_project()))
+
 function _render_notebook_isolated(path::AbstractString, project::NotebookProjectResolution,
                                    exporter::TextualReplayExporter, options::SlateBuildOptions,
                                    output_options::SlateOutputOptions, meta::NotebookMeta,
@@ -99,9 +101,9 @@ function _render_notebook_isolated(path::AbstractString, project::NotebookProjec
             open(request_path, "w") do io
                 Serialization.serialize(io, request)
             end
-            package_root = dirname(dirname(something(pathof(@__MODULE__))))
+            bootstrap_project = _worker_bootstrap_project()
             expression = "using DocumenterSlate; DocumenterSlate._isolated_worker(ARGS[1], ARGS[2])"
-            command = `$(Base.julia_cmd()) --startup-file=no --history-file=no --project=$package_root -e $expression $request_path $response_path`
+            command = `$(Base.julia_cmd()) --startup-file=no --history-file=no --project=$bootstrap_project -e $expression $request_path $response_path`
             stderr_io = open(stderr_path, "w")
             process = run(pipeline(
                 setenv(command, _isolated_environment(options.worker_environment));
