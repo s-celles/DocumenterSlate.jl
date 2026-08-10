@@ -19,12 +19,16 @@ using Documenter, DocumenterSlate
 
 result = build_slates(
     SlateBuildOptions(; source = joinpath(@__DIR__, "..", "notebooks"),
-                       output = joinpath(@__DIR__, "src", "notebooks")),
+                       output = joinpath(@__DIR__, "src", "notebooks"),
+                       worker_environment = Dict("LANG" => "C.UTF-8")),
 )
 
 makedocs(; sitename = "MyPkg.jl",
          pages = ["Home" => "index.md", "Notebooks" => result.pages])
 ```
+
+Each cache miss runs in a separate Julia process with the notebook's adjacent project activated.
+The parent environment is denied by default; `worker_environment` is the explicit allowlist.
 
 ## Public API
 

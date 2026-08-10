@@ -12,14 +12,16 @@ or destination directory for a given documentation build, so omitting either is 
 - `output::AbstractString`: directory the generated Markdown pages are written to (required).
 - `include::Vector{String} = ["*.jl"]`: glob patterns selecting notebooks under `source`.
 - `exclude::Vector{String} = ["_*.jl"]`: glob patterns excluding notebooks under `source`.
-- `exporter = nothing`: execution backend (`AbstractSlateExporter` subtype). Unconstrained for
-  now — the exporter type hierarchy is introduced separately (M1.8).
+- `exporter = nothing`: execution backend (`TextualReplayExporter()` by default). During
+  `build_slates`, textual replay runs in a dedicated child process.
 - `execution::Symbol = :auto`: one of `:auto`, `:always`, `:never`.
 - `cache_dir::AbstractString = "slate_cache"`: directory holding the build cache.
 - `nworkers::Integer = 1`: number of notebooks executed in parallel.
 - `fail_on_error::Bool = true`: whether a cell exception aborts the build (REQ-EXE-04/05).
 - `allow_remote::Bool = false`: whether notebooks containing `region=<name>` cell tags may
   be built. The default refusal requires an explicit opt-in (REQ-EXE-09).
+- `worker_environment::Dict{String,String} = Dict()`: explicit environment variables passed
+  to the isolated notebook process. The parent process environment is not inherited.
 - `slate_toml::Union{Nothing,AbstractString} = nothing`: path to a `docs/slate.toml`-shaped
   declarative config (spec §10) providing per-notebook `order`/`skip`/`show_code`/`binds`
   overrides to [`resolve_notebook_meta`](@ref). Added in M1.13 (not part of spec §7's
@@ -37,6 +39,7 @@ struct SlateBuildOptions
     nworkers::Int
     fail_on_error::Bool
     allow_remote::Bool
+    worker_environment::Dict{String,String}
     slate_toml::Union{Nothing,String}
 
     function SlateBuildOptions(
@@ -50,6 +53,7 @@ struct SlateBuildOptions
         nworkers::Integer,
         fail_on_error::Bool,
         allow_remote::Bool,
+        worker_environment::Dict{String,String},
         slate_toml::Union{Nothing,AbstractString},
     )
         execution in (:auto, :always, :never) || throw(ArgumentError(
@@ -58,7 +62,7 @@ struct SlateBuildOptions
         return new(
             String(source), String(output), collect(String, include), collect(String, exclude),
             exporter, execution, String(cache_dir), Int(nworkers), fail_on_error,
-            allow_remote,
+            allow_remote, copy(worker_environment),
             slate_toml === nothing ? nothing : String(slate_toml),
         )
     end
@@ -75,11 +79,12 @@ function SlateBuildOptions(;
     nworkers::Integer = 1,
     fail_on_error::Bool = true,
     allow_remote::Bool = false,
+    worker_environment::Dict{String,String} = Dict{String,String}(),
     slate_toml::Union{Nothing,AbstractString} = nothing,
 )
     return SlateBuildOptions(
         source, output, include, exclude, exporter, execution, cache_dir, nworkers,
-        fail_on_error, allow_remote, slate_toml,
+        fail_on_error, allow_remote, worker_environment, slate_toml,
     )
 end
 

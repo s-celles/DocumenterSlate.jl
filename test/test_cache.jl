@@ -16,6 +16,22 @@
     @test length(last(split(c1.documenterslate_version, "+"))) == 64
 end
 
+@testitem "cache fingerprint changes with isolated worker environment" begin
+    using DocumenterSlate
+
+    notebook = joinpath(@__DIR__, "fixtures", "notebooks", "simple.jl")
+    project = resolve_notebook_project(notebook)
+    meta = resolve_notebook_meta(notebook)
+    base = DocumenterSlate._gather_cache_components(
+        notebook, project, SlateOutputOptions(), meta, true, Dict{String,String}(),
+    )
+    changed = DocumenterSlate._gather_cache_components(
+        notebook, project, SlateOutputOptions(), meta, true, Dict("VISIBLE" => "yes"),
+    )
+    @test DocumenterSlate._cache_fingerprint(base) !=
+          DocumenterSlate._cache_fingerprint(changed)
+end
+
 @testitem "_cache_fingerprint changes when notebook bytes change" begin
     using DocumenterSlate
     using Test

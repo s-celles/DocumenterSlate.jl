@@ -59,11 +59,14 @@ end
 # are included even though only `:documenter`/`:files` are implemented in M1/M2 — the key
 # must already be correct once those options become load-bearing, not retrofitted then.
 function _render_option_hash(output_options::SlateOutputOptions, meta::NotebookMeta,
-                              fail_on_error::Bool)
+                              fail_on_error::Bool,
+                              worker_environment::Dict{String,String} = Dict{String,String}())
+    environment = join((key * "=" * worker_environment[key]
+                        for key in sort!(collect(keys(worker_environment)))), '\0')
     parts = [
         string(output_options.format), string(output_options.interactivity),
         string(output_options.show_code), string(output_options.assets),
-        string(meta.show_code), repr(meta.binds), string(fail_on_error),
+        string(meta.show_code), repr(meta.binds), string(fail_on_error), environment,
     ]
     return join(parts, "\x00")
 end
@@ -110,13 +113,14 @@ so the latter is trivially testable without touching the filesystem.
 """
 function _gather_cache_components(path::AbstractString, project::NotebookProjectResolution,
                                    output_options::SlateOutputOptions, meta::NotebookMeta,
-                                   fail_on_error::Bool)
+                                   fail_on_error::Bool,
+                                   worker_environment::Dict{String,String} = Dict{String,String}())
     notebook_sha = bytes2hex(SHA.sha256(read(path)))
     env_fingerprint = bytes2hex(SHA.sha256(_env_fingerprint_bytes(project)))
     return CacheComponents(
         notebook_sha, env_fingerprint, string(VERSION),
         _fallback_version(KaimonSlate), _documenterslate_build_id(),
-        _render_option_hash(output_options, meta, fail_on_error),
+        _render_option_hash(output_options, meta, fail_on_error, worker_environment),
     )
 end
 

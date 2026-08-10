@@ -36,6 +36,76 @@
     end
 end
 
+@testitem "build_slates: executes in a separate process, active project, and explicit environment" begin
+    using DocumenterSlate
+    using Test
+
+    mktempdir() do root
+        source = joinpath(root, "notebooks")
+        mkpath(source)
+        notebook = joinpath(source, "isolated.jl")
+        write(joinpath(source, "Project.toml"), "[deps]\n")
+        write(notebook, """
+        try; import KaimonSlate; catch; error("no runtime"); end; KaimonSlate.standalone!(@__MODULE__; dir=@__DIR__)
+
+        #%% code id=isolation
+        println("worker_pid=", getpid())
+        println("active_project=", Base.active_project())
+        println("secret=", get(ENV, "DOCUMENTERSLATE_TEST_SECRET", "missing"))
+        println("visible=", get(ENV, "DOCUMENTERSLATE_VISIBLE", "missing"))
+        42
+        """)
+
+        opts = SlateBuildOptions(
+            source = source,
+            output = joinpath(root, "out"),
+            cache_dir = joinpath(root, "cache"),
+            worker_environment = Dict("DOCUMENTERSLATE_VISIBLE" => "yes"),
+        )
+        withenv("DOCUMENTERSLATE_TEST_SECRET" => "must-not-leak") do
+            build_slates(opts)
+        end
+
+        page = read(joinpath(root, "out", "isolated.md"), String)
+        @test occursin("worker_pid=", page)
+        @test !occursin("worker_pid=$(getpid())", page)
+        @test occursin("active_project=$(joinpath(source, "Project.toml"))", page)
+        @test occursin("secret=missing", page)
+        @test occursin("visible=yes", page)
+    end
+end
+
+@testitem "build_slates: timeout terminates the isolated notebook process" begin
+    using DocumenterSlate
+    using Test
+
+    Sys.iswindows() && return
+    mktempdir() do root
+        source = joinpath(root, "notebooks")
+        mkpath(source)
+        pidfile = joinpath(root, "worker.pid")
+        write(joinpath(source, "Project.toml"), "[deps]\n")
+        write(joinpath(source, "hangs.jl"), """
+        try; import KaimonSlate; catch; error("no runtime"); end; KaimonSlate.standalone!(@__MODULE__; dir=@__DIR__)
+
+        #%% code id=hang
+        write($(repr(pidfile)), string(getpid()))
+        while true end
+        """)
+        opts = SlateBuildOptions(
+            source = source,
+            output = joinpath(root, "out"),
+            cache_dir = joinpath(root, "cache"),
+            exporter = TextualReplayExporter(timeout = 8),
+        )
+        elapsed = @elapsed @test_throws SlateExecutionTimeoutError build_slates(opts)
+        @test elapsed < 15
+        @test isfile(pidfile)
+        pid = parse(Cint, read(pidfile, String))
+        @test ccall(:kill, Cint, (Cint, Cint), pid, 0) != 0
+    end
+end
+
 @testitem "build_slates: fail_on_error=true (default) stops the build with SlateExecutionError" begin
     using DocumenterSlate
     using Test

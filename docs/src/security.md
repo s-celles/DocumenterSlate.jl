@@ -50,14 +50,25 @@ interactive hub directly, not yet implemented) would reopen this question — th
 expose the agent's tool-calling surface, and no upstream disable mechanism has been confirmed
 to exist. Do not assume this guarantee carries over once a hub-based exporter ships.
 
-## Environment variables (REQ-SEC-02)
+## Process, project, and environment isolation (REQ-EXE-02, REQ-SEC-02)
 
-Nothing in `DocumenterSlate.jl` sandboxes `ENV` at the Julia level — `Base.ENV` is
-process-global and reachable from any Julia code regardless of what this package does
-(documented in [`execute_notebook`](@ref)'s own docstring). The actual control is at the CI
-layer: `render-notebooks`' `env:` block is an explicit, minimal allowlist, not the runner's
-full environment. If you write your own workflow, don't assume the library protects secrets
-from a notebook's own `ENV[...]` calls — your workflow's `env:` block is what does.
+`build_slates` renders every cache miss in a dedicated Julia child process. For a notebook with
+an adjacent `Project.toml`, that project is activated before cells run. A timeout terminates and
+waits for the operating-system process, including a worker stuck in non-yielding code. The
+adjacent project must already be instantiated; documentation builds do not modify it or fetch
+dependencies implicitly.
+
+The child does not inherit the parent's environment. Only Julia's internal depot/load-path/thread
+settings and `SlateBuildOptions.worker_environment` are passed. The latter is an explicit
+`Dict{String,String}`; use it only for reviewed, non-secret values that the notebook genuinely
+needs. Its contents affect the cache fingerprint.
+
+For a notebook carrying only a `Slate.env` footer, DocumenterSlate creates a temporary project
+from the declared name/UUID entries. It does not yet resolve or instantiate that project into a
+published `Manifest.toml`; this remains the reproducibility gap for footer-only notebooks.
+
+The lower-level [`execute_notebook`](@ref) API remains an in-process primitive and can see the
+caller's process-global `ENV`. Use `build_slates` for isolated documentation builds.
 
 ## Network egress (REQ-SEC-04) — monitored, not yet blocked
 

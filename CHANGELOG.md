@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Isolated notebook rendering in a dedicated Julia process with the notebook's adjacent project
+  activated, hard process termination at timeout, and a deny-by-default worker environment.
+- `SlateBuildOptions.worker_environment`, an explicit `Dict{String,String}` of variables passed
+  to notebook workers; it participates in the composite cache fingerprint.
 - `verify_slate_bundle` and `SlateBundleVerification`: verify exhaustive artifact checksums and
   provenance coherence for a distribution directory or safely extracted `.tar.gz`, without
   executing notebook code.

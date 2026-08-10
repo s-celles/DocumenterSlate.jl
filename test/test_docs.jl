@@ -27,4 +27,5 @@
     @test occursin("inactive = true", read(distribution, String))
     @test occursin("\"Distribution\" => \"distribution.md\"", make_source)
     @test occursin("verify_slate_bundle", read(distribution, String))
+    @test occursin("worker_environment", read(joinpath(root, "docs", "src", "security.md"), String))
 end

@@ -2,6 +2,7 @@
     using DocumenterSlate
 
     opts = SlateBuildOptions(source = "notebooks", output = "src/notebooks")
+    @test isempty(opts.worker_environment)
 
     @test opts.source == "notebooks"
     @test opts.output == "src/notebooks"
@@ -13,6 +14,22 @@
     @test opts.nworkers isa Integer
     @test opts.nworkers >= 1
     @test opts.exporter === nothing
+end
+
+@testitem "SlateBuildOptions: worker environment is an explicit string allowlist" begin
+    using DocumenterSlate
+
+    opts = SlateBuildOptions(
+        source = "notebooks",
+        output = "src/notebooks",
+        worker_environment = Dict("VISIBLE" => "yes"),
+    )
+    @test opts.worker_environment == Dict("VISIBLE" => "yes")
+    @test_throws TypeError SlateBuildOptions(
+        source = "notebooks",
+        output = "src/notebooks",
+        worker_environment = Dict("SECRET" => 42),
+    )
 end
 
 @testitem "SlateBuildOptions: source and output are required (no default)" begin

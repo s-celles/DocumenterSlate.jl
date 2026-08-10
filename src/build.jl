@@ -57,7 +57,8 @@ function _build_one_notebook(path::AbstractString, meta::NotebookMeta,
         project = resolve_notebook_project(path)
         distribution = _write_distribution!(path, project, options.output, slug)
         components = _gather_cache_components(path, project, output_options, meta,
-                                               options.fail_on_error)
+                                               options.fail_on_error,
+                                               options.worker_environment)
         fingerprint = _cache_fingerprint(components)
 
         cached = options.execution == :always ? nothing :
@@ -79,46 +80,12 @@ function _build_one_notebook(path::AbstractString, meta::NotebookMeta,
             ))
         end
 
-        executed = execute_notebook(exporter, path;
-                                     fail_on_error = options.fail_on_error, binds = meta.binds)
-
         assets_out_dir = joinpath(options.output, "assets", slug)
-        assets_by_cell = if output_options.assets == :files
-            extract_assets!(executed, assets_out_dir)
+        page_text = if exporter isa TextualReplayExporter
+            _render_notebook_isolated(path, project, exporter, options, output_options, meta, slug)
         else
-            Dict{String,String}()
+            throw(ArgumentError("isolated rendering is not implemented for $(typeof(exporter))"))
         end
-
-        show_code = output_options.show_code && meta.show_code
-        # `String[...]`-typed comprehension (not `map(...) do`) so `rendered` is concretely
-        # `Vector{String}`, matching `cell_to_markdown`'s declared `-> String` return —
-        # avoids widening to `Vector{Any}` that a generic `map` closure can infer here.
-        rendered = String[
-            let asset_file = get(assets_by_cell, cell.cell_id, nothing),
-                asset_path = asset_file === nothing ? nothing :
-                             joinpath("assets", slug, asset_file)
-
-                cell_to_markdown(cell; show_code = show_code, anchor_prefix = slug,
-                                  asset_path = asset_path)
-            end
-            for cell in executed.cells
-        ]
-        # Built via IOBuffer rather than `join(rendered, "\n\n")`: `_build_one_notebook`'s
-        # long, branch-heavy `try` body exceeds Julia's inference complexity budget by this
-        # point (confirmed via `@code_warntype`: `join`'s inferred return type here widened
-        # to `Union{Nothing, Base.AnnotatedString{String}, String}` despite `rendered` being
-        # concretely `Vector{String}` — a known Julia inference-budget limitation for large
-        # functions, not a real bug; even an explicit `::String` LHS annotation only moved
-        # the same "possible convert(String, Nothing)" finding rather than resolving it,
-        # since the annotation itself still round-trips through the same widened value).
-        # `String(take!(io::IOBuffer))` is unambiguously, monomorphically `String` —
-        # sidesteps `join`'s declared return type entirely instead of fighting it.
-        io = IOBuffer()
-        for (i, part) in enumerate(rendered)
-            i > 1 && write(io, "\n\n")
-            write(io, part)
-        end
-        page_text = String(take!(io))
         write(joinpath(options.output, slug * ".md"),
               _decorate_page(page_text, distribution, slug))
 
@@ -313,12 +280,10 @@ Download links and per-artifact provenance (M3b) are generated for every noteboo
 non-determinism detector is explicitly deferred past M2 (it needs a second execution to
 diff against the cache, which is exactly the cost `:auto`/`:never` exist to avoid).
 
-**Not fixed by this milestone**: REQ-EXE-02 ("exécuter chaque notebook dans son propre
-projet Julia épinglé... sans polluer l'environnement `docs/`") is still not implemented —
-[`resolve_notebook_project`](@ref)'s result is consumed here only as a cache-key input, not
-to actually `Pkg.activate` a notebook's own environment before executing it. Every notebook
-still runs inside the calling process's active project. Tracked as a follow-up, not silently
-assumed fixed just because `resolve_notebook_project` is finally wired in.
+Cache misses are rendered in a dedicated child process. An adjacent notebook project is
+activated before execution, the parent environment is not inherited, and timeout kills the
+worker process. Footer-only environments use a temporary synthetic project; resolving and
+publishing a complete manifest for those footers remains follow-up work.
 """
 function build_slates(options::SlateBuildOptions,
                        output_options::SlateOutputOptions = SlateOutputOptions())

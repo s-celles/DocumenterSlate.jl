@@ -5,7 +5,7 @@ Result of resolving the pinned dependency environment for a single KaimonSlate
 notebook (spec §17 addendum, ADR-004; `upstream-bugs.md` §8 Decision A).
 
 Real KaimonSlate notebooks carry their own dependencies as an embedded `Slate.env`
-footer (name/version/UUID triples), not a resolved `Manifest.toml`. M1's resolution
+footer (name/version/UUID triples), not a resolved `Manifest.toml`. The resolution
 order is:
 
 1. `:external` — an external `Project.toml` sits beside the notebook. `project_dir`
@@ -17,8 +17,8 @@ order is:
    entries (each a `Dict` with `"name"`, `"version"`, `"uuid"`); `project_dir` and
    `manifest_path` are `nothing`.
 
-No `Pkg.resolve` happens for the `:footer` case in M1 — that is deferred to M2/M3b
-per the spec §17 addendum.
+No `Pkg.resolve` happens for the `:footer` case. Isolated builds materialize a temporary
+project from these entries, but resolving and publishing its manifest remains follow-up work.
 
 # Fields
 - `kind::Symbol`: `:external` or `:footer`.
@@ -72,7 +72,7 @@ function resolve_notebook_project(notebook_path::AbstractString)
 
     @warn "No external Project.toml found beside notebook; falling back to the notebook's " *
           "embedded Slate.env footer, which only records unresolved name/version/UUID pins " *
-          "(no Pkg.resolve is performed in M1)" notebook = resolved_notebook
+          "(no Pkg.resolve is performed)" notebook = resolved_notebook
 
     text = read(resolved_notebook, String)
     report = KaimonSlate.parse_report(text)

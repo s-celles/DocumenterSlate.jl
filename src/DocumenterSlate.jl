@@ -75,10 +75,10 @@ and the `:embed`/`:iframe` output formats (M4) — see spec.md
 §14 for the full milestone plan. CI security hardening and the two-job workflow (M3) are
 implemented (`.github/workflows/docs.yml`, `docs/src/security.md`); the cache-trust known
 limitation above is what's still open from that milestone, not the workflow itself.
-Per-notebook environment isolation (REQ-EXE-02 — each notebook running in its own pinned
-project rather than the calling process's) is also not implemented despite
-[`resolve_notebook_project`](@ref) existing; it's currently consumed only as a cache-key
-input.
+`build_slates` renders cache misses in dedicated Julia processes with the adjacent notebook
+project activated and a deny-by-default environment. Footer-only `Slate.env` projects are
+materialized temporarily but are not yet resolved into published manifests. The lower-level
+[`execute_notebook`](@ref) primitive remains in-process for direct callers.
 """
 module DocumenterSlate
 
@@ -86,6 +86,8 @@ import CodecZlib
 import Distributed
 import KaimonSlate
 import Logging
+import Pkg
+import Serialization
 import Tar
 import TOML
 
@@ -101,6 +103,7 @@ include("pages.jl")
 include("cache.jl")
 include("distribution.jl")
 include("verify_bundle.jl")
+include("isolated.jl")
 include("build.jl")
 include("ci_summary.jl")
 

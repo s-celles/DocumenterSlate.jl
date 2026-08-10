@@ -11,3 +11,6 @@ and a KaimonSlate inspection command that does not evaluate notebook cells.
 
 Verify a downloaded directory or archive before inspection with
 `verify_slate_bundle("notebook.tar.gz")`.
+
+Documentation builds execute cache misses in dedicated Julia processes with the notebook project
+activated and an explicit, deny-by-default worker environment.
