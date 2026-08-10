@@ -141,6 +141,20 @@ function _cache_fingerprint(c::CacheComponents)
     return bytes2hex(SHA.sha256(combined))
 end
 
+function _cache_tree_hash(directory::AbstractString)
+    isdir(directory) || return bytes2hex(SHA.sha256(UInt8[]))
+    paths = String[]
+    for (root, _, files) in walkdir(directory), name in files
+        push!(paths, relpath(joinpath(root, name), directory))
+    end
+    io = IOBuffer()
+    for relative in sort!(paths)
+        write(io, replace(relative, '\\' => '/'), '\0')
+        write(io, read(joinpath(directory, relative)), '\0')
+    end
+    return bytes2hex(SHA.sha256(take!(io)))
+end
+
 """
     _write_cache_entry!(cache_dir, slug, fingerprint, components::CacheComponents,
                          page_text, assets_dir) -> Nothing
@@ -155,15 +169,26 @@ later build considers this entry stale).
 """
 function _write_cache_entry!(cache_dir::AbstractString, slug::AbstractString,
                               fingerprint::AbstractString, components::CacheComponents,
-                              page_text::AbstractString, assets_dir::Union{Nothing,AbstractString})
+                              page_text::AbstractString, assets_dir::Union{Nothing,AbstractString},
+                              environment_dir::Union{Nothing,AbstractString} = nothing)
     isdir(cache_dir) || mkpath(cache_dir)
     write(joinpath(cache_dir, slug * ".md"), page_text)
 
+    cache_assets_dir = joinpath(cache_dir, "assets", slug)
+    isdir(cache_assets_dir) && rm(cache_assets_dir; recursive = true)
     if assets_dir !== nothing && isdir(assets_dir) && !isempty(readdir(assets_dir))
-        cache_assets_dir = joinpath(cache_dir, "assets", slug)
-        isdir(cache_assets_dir) && rm(cache_assets_dir; recursive = true)
         mkpath(dirname(cache_assets_dir))
         cp(assets_dir, cache_assets_dir)
+    end
+
+    cache_environment_dir = joinpath(cache_dir, "environments", slug)
+    isdir(cache_environment_dir) && rm(cache_environment_dir; recursive = true)
+    if environment_dir !== nothing && isdir(environment_dir)
+        mkpath(cache_environment_dir)
+        for name in ("Project.toml", "Manifest.toml")
+            source = joinpath(environment_dir, name)
+            isfile(source) && cp(source, joinpath(cache_environment_dir, name))
+        end
     end
 
     open(joinpath(cache_dir, slug * ".cache.toml"), "w") do io
@@ -175,6 +200,9 @@ function _write_cache_entry!(cache_dir::AbstractString, slug::AbstractString,
             "kaimonslate_version" => components.kaimonslate_version,
             "documenterslate_version" => components.documenterslate_version,
             "render_option_hash" => components.render_option_hash,
+            "rendered_sha256" => bytes2hex(SHA.sha256(String(page_text))),
+            "assets_sha256" => _cache_tree_hash(cache_assets_dir),
+            "environment_sha256" => _cache_tree_hash(cache_environment_dir),
         ))
     end
     return nothing
@@ -210,7 +238,15 @@ function _read_cache_entry(cache_dir::AbstractString, slug::AbstractString,
     catch
         return nothing
     end
+    get(meta, "rendered_sha256", nothing) == bytes2hex(SHA.sha256(page_text)) || return nothing
 
     assets_dir = joinpath(cache_dir, "assets", slug)
-    return (page_text = page_text, assets_dir = isdir(assets_dir) ? assets_dir : nothing)
+    environment_dir = joinpath(cache_dir, "environments", slug)
+    get(meta, "assets_sha256", nothing) == _cache_tree_hash(assets_dir) || return nothing
+    get(meta, "environment_sha256", nothing) == _cache_tree_hash(environment_dir) || return nothing
+    cached_environment = isfile(joinpath(environment_dir, "Project.toml")) &&
+                         isfile(joinpath(environment_dir, "Manifest.toml")) ?
+                         environment_dir : nothing
+    return (page_text = page_text, assets_dir = isdir(assets_dir) ? assets_dir : nothing,
+            environment_dir = cached_environment)
 end

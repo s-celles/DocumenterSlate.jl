@@ -215,18 +215,27 @@ end
         mkpath(assets_src)
         write(joinpath(assets_src, "fig-01.png"), UInt8[1, 2, 3])
 
+        environment_src = joinpath(dir, "environment")
+        mkpath(environment_src)
+        write(joinpath(environment_src, "Project.toml"), "[deps]\n")
+        write(joinpath(environment_src, "Manifest.toml"), "manifest_format = \"2.0\"\n")
+
         DocumenterSlate._write_cache_entry!(cache_dir, "simple", fp, components,
-                                             "# hello cache", assets_src)
+                                             "# hello cache", assets_src, environment_src)
 
         @test isfile(joinpath(cache_dir, "simple.md"))
         @test isfile(joinpath(cache_dir, "simple.cache.toml"))
         @test isfile(joinpath(cache_dir, "assets", "simple", "fig-01.png"))
+        @test isfile(joinpath(cache_dir, "environments", "simple", "Project.toml"))
+        @test isfile(joinpath(cache_dir, "environments", "simple", "Manifest.toml"))
 
         entry = DocumenterSlate._read_cache_entry(cache_dir, "simple", fp)
         @test entry !== nothing
         @test entry.page_text == "# hello cache"
         @test entry.assets_dir !== nothing
         @test read(joinpath(entry.assets_dir, "fig-01.png")) == UInt8[1, 2, 3]
+        @test entry.environment_dir !== nothing
+        @test isfile(joinpath(entry.environment_dir, "Manifest.toml"))
     end
 end
 
@@ -255,6 +264,31 @@ end
         DocumenterSlate._write_cache_entry!(cache_dir, "simple", fp, components, "stale content", nothing)
 
         @test DocumenterSlate._read_cache_entry(cache_dir, "simple", "a-different-fingerprint") === nothing
+    end
+end
+
+@testitem "_read_cache_entry rejects tampered rendered content and environment" begin
+    using DocumenterSlate
+
+    mktempdir() do dir
+        components = DocumenterSlate.CacheComponents("a", "b", "c", "d", "e", "f")
+        fingerprint = DocumenterSlate._cache_fingerprint(components)
+        environment = joinpath(dir, "environment")
+        mkpath(environment)
+        write(joinpath(environment, "Project.toml"), "[deps]\n")
+        write(joinpath(environment, "Manifest.toml"), "manifest_format = \"2.0\"\n")
+        DocumenterSlate._write_cache_entry!(
+            dir, "notebook", fingerprint, components, "trusted", nothing, environment,
+        )
+
+        write(joinpath(dir, "notebook.md"), "tampered")
+        @test DocumenterSlate._read_cache_entry(dir, "notebook", fingerprint) === nothing
+
+        DocumenterSlate._write_cache_entry!(
+            dir, "notebook", fingerprint, components, "trusted", nothing, environment,
+        )
+        write(joinpath(dir, "environments", "notebook", "Manifest.toml"), "tampered")
+        @test DocumenterSlate._read_cache_entry(dir, "notebook", fingerprint) === nothing
     end
 end
 

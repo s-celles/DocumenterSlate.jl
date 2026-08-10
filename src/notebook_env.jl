@@ -17,8 +17,9 @@ order is:
    entries (each a `Dict` with `"name"`, `"version"`, `"uuid"`); `project_dir` and
    `manifest_path` are `nothing`.
 
-No `Pkg.resolve` happens for the `:footer` case. Isolated builds materialize a temporary
-project from these entries, but resolving and publishing its manifest remains follow-up work.
+On a cache miss, isolated builds materialize a temporary project from these entries, resolve and
+instantiate it without inheriting the parent environment, and cache the resulting manifest for
+the non-executing documentation job.
 
 # Fields
 - `kind::Symbol`: `:external` or `:footer`.
@@ -70,9 +71,8 @@ function resolve_notebook_project(notebook_path::AbstractString)
         )
     end
 
-    @warn "No external Project.toml found beside notebook; falling back to the notebook's " *
-          "embedded Slate.env footer, which only records unresolved name/version/UUID pins " *
-          "(no Pkg.resolve is performed)" notebook = resolved_notebook
+    @warn "No external Project.toml found beside notebook; using the embedded Slate.env " *
+          "name/version/UUID pins to prepare an isolated resolved environment" notebook = resolved_notebook
 
     text = read(resolved_notebook, String)
     report = KaimonSlate.parse_report(text)

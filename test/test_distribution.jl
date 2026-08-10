@@ -56,6 +56,31 @@
     end
 end
 
+@testitem "distribution: footer notebooks publish a prepared Project and Manifest" begin
+    using DocumenterSlate
+
+    mktempdir() do root
+        notebook = joinpath(root, "footer.jl")
+        write(notebook, "#%% code id=x\n1\n")
+        project = DocumenterSlate.NotebookProjectResolution(
+            :footer, notebook, nothing, nothing, Dict{String,Any}[],
+        )
+        prepared = joinpath(root, "prepared")
+        mkpath(prepared)
+        write(joinpath(prepared, "Project.toml"), "[deps]\n")
+        write(joinpath(prepared, "Manifest.toml"), "manifest_format = \"2.0\"\n")
+
+        dist = DocumenterSlate._write_distribution!(
+            notebook, project, joinpath(root, "output"), "footer";
+            environment_dir = prepared,
+        )
+
+        @test isfile(joinpath(dist.directory, "Project.toml"))
+        @test isfile(joinpath(dist.directory, "Manifest.toml"))
+        @test !isfile(joinpath(dist.directory, "Slate.env.toml"))
+    end
+end
+
 @testitem "distribution panel: escapes notebook names in raw HTML actions" begin
     using DocumenterSlate
 

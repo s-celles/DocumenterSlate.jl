@@ -47,23 +47,72 @@ end
 
 function _footer_project!(directory::AbstractString, project::NotebookProjectResolution)
     dependencies = Dict{String,String}("KaimonSlate" => "f7b954f5-0334-4562-ac21-b005218ce1da")
+    compat = Dict{String,String}("KaimonSlate" => "=" * _fallback_version(KaimonSlate))
     for dependency in something(project.env_footer)
         name = get(dependency, "name", nothing)
         uuid = get(dependency, "uuid", nothing)
         name isa String && uuid isa String && (dependencies[name] = uuid)
+        version = get(dependency, "version", nothing)
+        name isa String && version isa String && (compat[name] = "=" * version)
     end
     open(joinpath(directory, "Project.toml"), "w") do io
-        TOML.print(io, Dict("deps" => dependencies))
+        TOML.print(io, Dict("deps" => dependencies, "compat" => compat))
     end
     return directory
 end
 
-function _with_worker_project(f::Function, project::NotebookProjectResolution)
-    if project.kind == :external
+function _resolve_project_worker(project_dir::AbstractString)
+    Pkg.activate(project_dir; io = devnull)
+    Pkg.resolve(; io = devnull)
+    Pkg.instantiate(; io = devnull)
+    return nothing
+end
+
+function _run_isolated_command(command::Cmd, environment::Dict{String,String}, stderr_path::AbstractString,
+                               timeout::Real, timeout_error::Function)
+    stderr_io = open(stderr_path, "w")
+    process = try
+        run(pipeline(setenv(command, environment); stdout = devnull, stderr = stderr_io); wait = false)
+    catch
+        close(stderr_io)
+        rethrow()
+    end
+    status = timedwait(() -> process_exited(process), timeout)
+    if status !== :ok
+        Sys.iswindows() ? kill(process) : kill(process, Base.SIGKILL)
+        wait(process)
+        close(stderr_io)
+        throw(timeout_error())
+    end
+    wait(process)
+    close(stderr_io)
+    return process
+end
+
+function _with_prepared_project(f::Function, project::NotebookProjectResolution,
+                                options::SlateBuildOptions, timeout::Real)
+    if project.kind == :external && project.manifest_path !== nothing
         return f(something(project.project_dir))
     end
     return mktempdir() do directory
-        _footer_project!(directory, project)
+        if project.kind == :external
+            cp(joinpath(something(project.project_dir), "Project.toml"),
+               joinpath(directory, "Project.toml"))
+        else
+            _footer_project!(directory, project)
+        end
+        stderr_path = joinpath(directory, "resolve.stderr")
+        expression = "using DocumenterSlate; DocumenterSlate._resolve_project_worker(ARGS[1])"
+        bootstrap_project = _worker_bootstrap_project()
+        command = `$(Base.julia_cmd()) --startup-file=no --history-file=no --project=$bootstrap_project -e $expression $directory`
+        process = _run_isolated_command(
+            command, _isolated_environment(options.worker_environment), stderr_path, timeout,
+            () -> SlateExecutionTimeoutError(project.notebook_path, timeout),
+        )
+        if !success(process) || !isfile(joinpath(directory, "Manifest.toml"))
+            stderr = isfile(stderr_path) ? read(stderr_path, String) : ""
+            throw(ErrorException("isolated notebook environment preparation failed: " * stderr))
+        end
         f(directory)
     end
 end
@@ -81,12 +130,11 @@ end
 
 _worker_bootstrap_project() = dirname(something(Base.active_project()))
 
-function _render_notebook_isolated(path::AbstractString, project::NotebookProjectResolution,
+function _render_notebook_isolated(path::AbstractString, project_dir::AbstractString,
                                    exporter::TextualReplayExporter, options::SlateBuildOptions,
                                    output_options::SlateOutputOptions, meta::NotebookMeta,
                                    slug::AbstractString)
-    return _with_worker_project(project) do project_dir
-        mktempdir() do temporary
+    return mktempdir() do temporary
             request_path = joinpath(temporary, "request.bin")
             response_path = joinpath(temporary, "response.bin")
             stderr_path = joinpath(temporary, "stderr.txt")
@@ -104,20 +152,10 @@ function _render_notebook_isolated(path::AbstractString, project::NotebookProjec
             bootstrap_project = _worker_bootstrap_project()
             expression = "using DocumenterSlate; DocumenterSlate._isolated_worker(ARGS[1], ARGS[2])"
             command = `$(Base.julia_cmd()) --startup-file=no --history-file=no --project=$bootstrap_project -e $expression $request_path $response_path`
-            stderr_io = open(stderr_path, "w")
-            process = run(pipeline(
-                setenv(command, _isolated_environment(options.worker_environment));
-                stdout = devnull, stderr = stderr_io,
-            ); wait = false)
-            status = timedwait(() -> process_exited(process), exporter.timeout)
-            if status !== :ok
-                kill(process)
-                wait(process)
-                close(stderr_io)
-                throw(SlateExecutionTimeoutError(realpath(path), exporter.timeout))
-            end
-            wait(process)
-            close(stderr_io)
+            process = _run_isolated_command(
+                command, _isolated_environment(options.worker_environment), stderr_path,
+                exporter.timeout, () -> SlateExecutionTimeoutError(realpath(path), exporter.timeout),
+            )
             if !isfile(response_path)
                 stderr = isfile(stderr_path) ? read(stderr_path, String) : ""
                 throw(ErrorException("isolated notebook worker failed: " * stderr))
@@ -141,6 +179,5 @@ function _render_notebook_isolated(path::AbstractString, project::NotebookProjec
                 end
             end
             return String(response.page_text)
-        end
     end
 end

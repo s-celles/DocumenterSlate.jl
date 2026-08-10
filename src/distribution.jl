@@ -46,7 +46,9 @@ end
 
 function _write_distribution!(notebook_path::AbstractString,
                               project::NotebookProjectResolution,
-                              output_dir::AbstractString, slug::AbstractString; kwargs...)
+                              output_dir::AbstractString, slug::AbstractString;
+                              environment_dir::Union{Nothing,AbstractString} = nothing,
+                              kwargs...)
     ctx = _distribution_context(; kwargs...)
     relative_directory = joinpath("downloads", String(slug))
     directory = joinpath(output_dir, relative_directory)
@@ -55,7 +57,10 @@ function _write_distribution!(notebook_path::AbstractString,
 
     source_name = string(slug, ".jl")::String
     cp(notebook_path, joinpath(directory, source_name))
-    if project.kind == :external
+    if environment_dir !== nothing
+        cp(joinpath(environment_dir, "Project.toml"), joinpath(directory, "Project.toml"))
+        cp(joinpath(environment_dir, "Manifest.toml"), joinpath(directory, "Manifest.toml"))
+    elseif project.kind == :external
         project_dir = something(project.project_dir)
         cp(joinpath(project_dir, "Project.toml"), joinpath(directory, "Project.toml"))
         project.manifest_path === nothing ||

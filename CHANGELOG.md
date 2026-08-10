@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   activated, hard process termination at timeout, and a deny-by-default worker environment.
 - `SlateBuildOptions.worker_environment`, an explicit `Dict{String,String}` of variables passed
   to notebook workers; it participates in the composite cache fingerprint.
+- Isolated resolution of `Slate.env` footers into manifest-backed notebook environments, retained
+  in the build cache and published with every downloadable notebook bundle.
 - `verify_slate_bundle` and `SlateBundleVerification`: verify exhaustive artifact checksums and
   provenance coherence for a distribution directory or safely extracted `.tar.gz`, without
   executing notebook code.
@@ -95,6 +97,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Isolated workers bootstrap DocumenterSlate from the caller's already-instantiated project,
   allowing clean documentation runners without an incidental root `Manifest.toml`.
+- Worker timeouts use an unconditional process kill on Unix, including for package operations
+  that do not respond promptly to a termination request.
+- Cache metadata binds the rendered Markdown, assets, and resolved environment by SHA-256 and
+  rejects altered payloads before a cache-only documentation build publishes them.
 - Notebook heading anchors now use Documenter's `@id` syntax instead of raw `<a>` elements
   that could appear as visible text in generated pages.
 - Development cache keys now include a hash of DocumenterSlate's loaded sources, preventing

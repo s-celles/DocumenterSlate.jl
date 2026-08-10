@@ -20,8 +20,10 @@ site) §12 for the full threat model (T1–T6) this page is a summary of.
 ## What is *not* guaranteed yet: cache-entry provenance (T6)
 
 `execution = :never`'s cache lookup validates a fingerprint computed purely from *inputs*
-(notebook bytes, resolved environment, tool versions, render options) — it does not
-cryptographically bind a cache entry to *who produced it*. Concretely: a notebook running in
+(notebook bytes, resolved environment, tool versions, render options) and SHA-256 hashes of the
+rendered Markdown, assets, and resolved environment. These hashes detect accidental or external
+corruption, but they do not cryptographically bind a cache entry to *who produced it*. Concretely:
+a notebook running in
 `render-notebooks` has ordinary filesystem access to `docs/slate_cache` in that same job. A
 malicious notebook merged into `notebooks/`/`docs/notebooks/` could in principle write a
 forged `<slug>.md` + matching `<slug>.cache.toml` pair directly, bypassing
@@ -64,8 +66,9 @@ settings and `SlateBuildOptions.worker_environment` are passed. The latter is an
 needs. Its contents affect the cache fingerprint.
 
 For a notebook carrying only a `Slate.env` footer, DocumenterSlate creates a temporary project
-from the declared name/UUID entries. It does not yet resolve or instantiate that project into a
-published `Manifest.toml`; this remains the reproducibility gap for footer-only notebooks.
+from the declared name/UUID/version entries in another isolated process, resolves and instantiates
+it, and publishes the resulting `Project.toml` and `Manifest.toml`. The cache artifact carries that
+resolved environment into the non-executing deployment job, which never resolves packages.
 
 The lower-level [`execute_notebook`](@ref) API remains an in-process primitive and can see the
 caller's process-global `ENV`. Use `build_slates` for isolated documentation builds.

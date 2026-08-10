@@ -55,7 +55,6 @@ function _build_one_notebook(path::AbstractString, meta::NotebookMeta,
     try
         _check_remote_opt_in(path, options)
         project = resolve_notebook_project(path)
-        distribution = _write_distribution!(path, project, options.output, slug)
         components = _gather_cache_components(path, project, output_options, meta,
                                                options.fail_on_error,
                                                options.worker_environment)
@@ -64,8 +63,11 @@ function _build_one_notebook(path::AbstractString, meta::NotebookMeta,
         cached = options.execution == :always ? nothing :
                  _read_cache_entry(options.cache_dir, slug, fingerprint)
 
-        if cached !== nothing
-            decorated = _decorate_page(cached.page_text, distribution, slug)
+        if cached !== nothing && cached.environment_dir !== nothing
+            cached_distribution = _write_distribution!(
+                path, project, options.output, slug; environment_dir = cached.environment_dir,
+            )
+            decorated = _decorate_page(cached.page_text, cached_distribution, slug)
             _write_output_from_cache(options.output, slug, cached; page_text = decorated)
             @info "notebook build" slug status=:cached elapsed_s=round(time() - t0; digits = 3)
             return nothing
@@ -80,20 +82,26 @@ function _build_one_notebook(path::AbstractString, meta::NotebookMeta,
             ))
         end
 
-        assets_out_dir = joinpath(options.output, "assets", slug)
-        page_text = if exporter isa TextualReplayExporter
-            _render_notebook_isolated(path, project, exporter, options, output_options, meta, slug)
-        else
-            throw(ArgumentError("isolated rendering is not implemented for $(typeof(exporter))"))
-        end
-        write(joinpath(options.output, slug * ".md"),
-              _decorate_page(page_text, distribution, slug))
+        exporter isa TextualReplayExporter || throw(ArgumentError(
+            "isolated rendering is not implemented for $(typeof(exporter))"))
+        _with_prepared_project(project, options, exporter.timeout) do prepared_project
+            fresh_distribution = _write_distribution!(
+                path, project, options.output, slug; environment_dir = prepared_project,
+            )
+            assets_out_dir = joinpath(options.output, "assets", slug)
+            page_text = _render_notebook_isolated(
+                path, prepared_project, exporter, options, output_options, meta, slug,
+            )
+            write(joinpath(options.output, slug * ".md"),
+                  _decorate_page(page_text, fresh_distribution, slug))
 
-        # Refresh the cache on every non-cache-hit build (`:auto` miss, or `:always`) so a
-        # *following* `:auto`/`:never` build benefits (REQ-CACHE-01's "réutiliser" invariant
-        # holds for the next build, not just this one).
-        _write_cache_entry!(options.cache_dir, slug, fingerprint, components, page_text,
-                             isdir(assets_out_dir) ? assets_out_dir : nothing)
+            # Refresh the cache on every non-cache-hit build (`:auto` miss, or `:always`) so a
+            # *following* `:auto`/`:never` build benefits (REQ-CACHE-01's "réutiliser" invariant
+            # holds for the next build, not just this one).
+            _write_cache_entry!(options.cache_dir, slug, fingerprint, components, page_text,
+                                isdir(assets_out_dir) ? assets_out_dir : nothing,
+                                prepared_project)
+        end
 
         @info "notebook build" slug status=:executed elapsed_s=round(time() - t0; digits = 3)
         return nothing
@@ -280,10 +288,10 @@ Download links and per-artifact provenance (M3b) are generated for every noteboo
 non-determinism detector is explicitly deferred past M2 (it needs a second execution to
 diff against the cache, which is exactly the cost `:auto`/`:never` exist to avoid).
 
-Cache misses are rendered in a dedicated child process. An adjacent notebook project is
-activated before execution, the parent environment is not inherited, and timeout kills the
-worker process. Footer-only environments use a temporary synthetic project; resolving and
-publishing a complete manifest for those footers remains follow-up work.
+Cache misses are rendered in a dedicated child process. A manifest-backed notebook project is
+activated before execution, the parent environment is not inherited, and timeout hard-kills the
+worker process. Footer-only environments are resolved and instantiated in another isolated
+process; their Project and Manifest are cached for the non-executing deployment job.
 """
 function build_slates(options::SlateBuildOptions,
                        output_options::SlateOutputOptions = SlateOutputOptions())

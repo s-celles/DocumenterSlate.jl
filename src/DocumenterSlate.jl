@@ -75,9 +75,9 @@ and the `:embed`/`:iframe` output formats (M4) — see spec.md
 §14 for the full milestone plan. CI security hardening and the two-job workflow (M3) are
 implemented (`.github/workflows/docs.yml`, `docs/src/security.md`); the cache-trust known
 limitation above is what's still open from that milestone, not the workflow itself.
-`build_slates` renders cache misses in dedicated Julia processes with the adjacent notebook
+`build_slates` renders cache misses in dedicated Julia processes with a resolved notebook
 project activated and a deny-by-default environment. Footer-only `Slate.env` projects are
-materialized temporarily but are not yet resolved into published manifests. The lower-level
+resolved and their manifests are carried in the build cache. The lower-level
 [`execute_notebook`](@ref) primitive remains in-process for direct callers.
 """
 module DocumenterSlate

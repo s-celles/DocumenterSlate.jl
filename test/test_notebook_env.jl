@@ -14,7 +14,7 @@
     @test result.env_footer !== nothing
     @test !isempty(result.env_footer)
     @test any(p -> p["name"] == "Example", result.env_footer)
-    @test any(p -> p["version"] == "0.5.3", result.env_footer)
+    @test any(p -> p["version"] == "0.5.5", result.env_footer)
 end
 
 @testitem "resolve_notebook_project: warns when falling back to the Slate.env footer" begin

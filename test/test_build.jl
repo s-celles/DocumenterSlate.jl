@@ -45,6 +45,8 @@ end
         mkpath(source)
         notebook = joinpath(source, "isolated.jl")
         write(joinpath(source, "Project.toml"), "[deps]\n")
+        write(joinpath(source, "Manifest.toml"),
+              "julia_version = \"$(VERSION)\"\nmanifest_format = \"2.0\"\n")
         write(notebook, """
         try; import KaimonSlate; catch; error("no runtime"); end; KaimonSlate.standalone!(@__MODULE__; dir=@__DIR__)
 
@@ -69,7 +71,9 @@ end
         page = read(joinpath(root, "out", "isolated.md"), String)
         @test occursin("worker_pid=", page)
         @test !occursin("worker_pid=$(getpid())", page)
-        @test occursin("active_project=$(joinpath(source, "Project.toml"))", page)
+        @test occursin("active_project=", page)
+        @test occursin("/Project.toml", page)
+        @test !occursin("active_project=$(Base.active_project())", page)
         @test occursin("secret=missing", page)
         @test occursin("visible=yes", page)
     end
@@ -82,6 +86,21 @@ end
     @test DocumenterSlate._worker_bootstrap_project() == dirname(Base.active_project())
 end
 
+@testitem "isolated command timeout hard-kills a process that ignores SIGTERM" begin
+    using DocumenterSlate
+    using Test
+
+    Sys.iswindows() && return
+    mktempdir() do directory
+        command = `bash -c 'trap "" TERM; while :; do :; done'`
+        elapsed = @elapsed @test_throws ErrorException DocumenterSlate._run_isolated_command(
+            command, Dict{String,String}(), joinpath(directory, "stderr"), 0.2,
+            () -> ErrorException("timeout"),
+        )
+        @test elapsed < 3
+    end
+end
+
 @testitem "build_slates: timeout terminates the isolated notebook process" begin
     using DocumenterSlate
     using Test
@@ -92,6 +111,8 @@ end
         mkpath(source)
         pidfile = joinpath(root, "worker.pid")
         write(joinpath(source, "Project.toml"), "[deps]\n")
+        write(joinpath(source, "Manifest.toml"),
+              "julia_version = \"$(VERSION)\"\nmanifest_format = \"2.0\"\n")
         write(joinpath(source, "hangs.jl"), """
         try; import KaimonSlate; catch; error("no runtime"); end; KaimonSlate.standalone!(@__MODULE__; dir=@__DIR__)
 

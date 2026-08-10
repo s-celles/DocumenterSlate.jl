@@ -10,5 +10,5 @@ rendering of the plainest possible cell shapes.
 1 + 1
 
 # ╔═╡ Slate.env · notebook packages (auto-maintained — manage via the package panel)
-#   Example 0.5.3 8ac3fa42-a05e-49e1-b0e7-4b9b5c1d1f3f
+#   Example 0.5.5 7876af07-990d-54b4-ab0e-23690620f79a
 # ╚═╡
