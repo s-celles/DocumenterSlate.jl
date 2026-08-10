@@ -1,10 +1,10 @@
 repository = "s-celles/DocumenterSlate.jl"
 source_sha256 = "9f2a885759e883277fef7053a9e022caeb2ce842ea313800222b46757287ad23"
 julia_version = "1.12.6"
-git_sha = "b2bb712d52403317e46940c81a564774119b5116"
+git_sha = "c1792550606918c6867e0135fc40460dd98b64b2"
 environment_kind = "external"
-run_id = "31341640693"
-build_timestamp = "2026-08-10T01:20:09+02:00"
+run_id = "31361864473"
+build_timestamp = "2026-08-10T08:24:28+02:00"
 documenterslate_version = "0.1.0-DEV+29d7f32368e33c0c5df648307efef593109cfe00814b959d59003fcad4343bd4"
 manifest_sha256 = ""
 ci_produced = true

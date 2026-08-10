@@ -173,11 +173,11 @@ KaimonSlate.serve_notebook("hello.jl"; inactive = true)</code></pre>
 
     | Artifact | SHA-256 |
     |:--|:--|
-    | [`PROVENANCE.toml`](downloads/hello/PROVENANCE.toml) | `7ffbee304f02832ae6fcaa842c7c35fe22099a6fd5e75f2dc65bcca1372740ae` |
+    | [`PROVENANCE.toml`](downloads/hello/PROVENANCE.toml) | `b9ba88b6e839919b4f93562aed02b44495487199e9e02181a9366025a87fa475` |
     | [`Project.toml`](downloads/hello/Project.toml) | `f611f3118041332ea446aa24d11ad03397fcd156b61a97ccd4d0313008befb04` |
     | [`README.md`](downloads/hello/README.md) | `2b51f476d18797ba12bbd186fef23d4696047e2924557922857a3880de9ba0e9` |
     | [`hello.jl`](downloads/hello/hello.jl) | `3efd9ee02987f58d97d230b8355192eb521d6accc4dbf4b18a658ec674034601` |
-    | [`hello.tar.gz`](downloads/hello/hello.tar.gz) | `4111eb7d0d1169db8d6374fdd183c87e7581b109464b6bbbc28a3ce90c5ffade` |
+    | [`hello.tar.gz`](downloads/hello/hello.tar.gz) | `7d7f9ac7ba917819bcb7cd212ffcd2c1a46d3da3cbc212aa8838785cdb37023b` |
 
 
 # [Hello, DocumenterSlate](@id hello-hello-documenterslate)
@@ -251,11 +251,11 @@ KaimonSlate.serve_notebook("hidden_code_demo.jl"; inactive = true)</code></pre>
 
     | Artifact | SHA-256 |
     |:--|:--|
-    | [`PROVENANCE.toml`](downloads/hidden_code_demo/PROVENANCE.toml) | `99fe26e40ed61152e770a4e7f45505e2fac107d7a90ed49451a9e18e6b0c1dba` |
+    | [`PROVENANCE.toml`](downloads/hidden_code_demo/PROVENANCE.toml) | `fd0dafc94357af3f7d625eb84d5dd75c645d410725becaadcf0f3cecccbc01c9` |
     | [`Project.toml`](downloads/hidden_code_demo/Project.toml) | `f611f3118041332ea446aa24d11ad03397fcd156b61a97ccd4d0313008befb04` |
     | [`README.md`](downloads/hidden_code_demo/README.md) | `a96d6a64a9ca1ca08b95cc26cdb63606ecb8fb3ec37799d3353bbff105aa1c7f` |
     | [`hidden_code_demo.jl`](downloads/hidden_code_demo/hidden_code_demo.jl) | `9f2a885759e883277fef7053a9e022caeb2ce842ea313800222b46757287ad23` |
-    | [`hidden_code_demo.tar.gz`](downloads/hidden_code_demo/hidden_code_demo.tar.gz) | `7f1ed7d5494149289cc71e6820e648882f90afdc4ceaef8958807d626649e6be` |
+    | [`hidden_code_demo.tar.gz`](downloads/hidden_code_demo/hidden_code_demo.tar.gz) | `f793bb26b55bf25284efdb546fcb1efcd8072c2dc98a99d60e9874eeab136174` |
 
 
 # [Hiding a cell's source](@id hidden_code_demo-hiding-a-cell-s-source)
