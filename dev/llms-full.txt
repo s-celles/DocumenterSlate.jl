@@ -177,11 +177,12 @@ KaimonSlate.serve_notebook("hello.jl"; inactive = true)</code></pre>
 
     | Artifact | SHA-256 |
     |:--|:--|
-    | [`PROVENANCE.toml`](downloads/hello/PROVENANCE.toml) | `7e226d2d184193e126118fa370e8481534345b5173a6fc653396a4cd10880c9f` |
+    | [`Manifest.toml`](downloads/hello/Manifest.toml) | `820a299a90e258ea080e5781bb4a2f354f439c3d48ae22be9ceec96de918602c` |
+    | [`PROVENANCE.toml`](downloads/hello/PROVENANCE.toml) | `ed168d45d21a0e5f95f4c3f1f2e6cd1b35d75789c410b574c7236bf3dc9d5d75` |
     | [`Project.toml`](downloads/hello/Project.toml) | `f611f3118041332ea446aa24d11ad03397fcd156b61a97ccd4d0313008befb04` |
     | [`README.md`](downloads/hello/README.md) | `2b51f476d18797ba12bbd186fef23d4696047e2924557922857a3880de9ba0e9` |
     | [`hello.jl`](downloads/hello/hello.jl) | `3efd9ee02987f58d97d230b8355192eb521d6accc4dbf4b18a658ec674034601` |
-    | [`hello.tar.gz`](downloads/hello/hello.tar.gz) | `d84f0c9171d908e16cf9e09425c3258f1f252dced69c07c458424d2aed1a63f2` |
+    | [`hello.tar.gz`](downloads/hello/hello.tar.gz) | `128e96e5d944bff04936c44710aced905d6b3ef70c484d59b1e83336c099074c` |
 
 
 # [Hello, DocumenterSlate](@id hello-hello-documenterslate)
@@ -255,11 +256,12 @@ KaimonSlate.serve_notebook("hidden_code_demo.jl"; inactive = true)</code></pre>
 
     | Artifact | SHA-256 |
     |:--|:--|
-    | [`PROVENANCE.toml`](downloads/hidden_code_demo/PROVENANCE.toml) | `371ef5f73caa9a138985aeab26667531fbbcb63d98ceea8fc236da6c884d7dd3` |
+    | [`Manifest.toml`](downloads/hidden_code_demo/Manifest.toml) | `820a299a90e258ea080e5781bb4a2f354f439c3d48ae22be9ceec96de918602c` |
+    | [`PROVENANCE.toml`](downloads/hidden_code_demo/PROVENANCE.toml) | `544eccfa9fa0003b2d16be21d299da22fc1d133d3ea6eaeda0c38e46a7b46bf5` |
     | [`Project.toml`](downloads/hidden_code_demo/Project.toml) | `f611f3118041332ea446aa24d11ad03397fcd156b61a97ccd4d0313008befb04` |
     | [`README.md`](downloads/hidden_code_demo/README.md) | `a96d6a64a9ca1ca08b95cc26cdb63606ecb8fb3ec37799d3353bbff105aa1c7f` |
     | [`hidden_code_demo.jl`](downloads/hidden_code_demo/hidden_code_demo.jl) | `9f2a885759e883277fef7053a9e022caeb2ce842ea313800222b46757287ad23` |
-    | [`hidden_code_demo.tar.gz`](downloads/hidden_code_demo/hidden_code_demo.tar.gz) | `4ef035dbe2580dff36e5b8b864e9e48ca99d15d26c97af47fb14503e4d403c15` |
+    | [`hidden_code_demo.tar.gz`](downloads/hidden_code_demo/hidden_code_demo.tar.gz) | `9204a9683757388622cf05b3d9fd9cc76ca6834ba3fc01e183813cd777fff434` |
 
 
 # [Hiding a cell's source](@id hidden_code_demo-hiding-a-cell-s-source)
@@ -313,8 +315,10 @@ site) §12 for the full threat model (T1–T6) this page is a summary of.
 ## What is *not* guaranteed yet: cache-entry provenance (T6)
 
 `execution = :never`'s cache lookup validates a fingerprint computed purely from *inputs*
-(notebook bytes, resolved environment, tool versions, render options) — it does not
-cryptographically bind a cache entry to *who produced it*. Concretely: a notebook running in
+(notebook bytes, resolved environment, tool versions, render options) and SHA-256 hashes of the
+rendered Markdown, assets, and resolved environment. These hashes detect accidental or external
+corruption, but they do not cryptographically bind a cache entry to *who produced it*. Concretely:
+a notebook running in
 `render-notebooks` has ordinary filesystem access to `docs/slate_cache` in that same job. A
 malicious notebook merged into `notebooks/`/`docs/notebooks/` could in principle write a
 forged `<slug>.md` + matching `<slug>.cache.toml` pair directly, bypassing
@@ -357,8 +361,9 @@ settings and `SlateBuildOptions.worker_environment` are passed. The latter is an
 needs. Its contents affect the cache fingerprint.
 
 For a notebook carrying only a `Slate.env` footer, DocumenterSlate creates a temporary project
-from the declared name/UUID entries. It does not yet resolve or instantiate that project into a
-published `Manifest.toml`; this remains the reproducibility gap for footer-only notebooks.
+from the declared name/UUID/version entries in another isolated process, resolves and instantiates
+it, and publishes the resulting `Project.toml` and `Manifest.toml`. The cache artifact carries that
+resolved environment into the non-executing deployment job, which never resolves packages.
 
 The lower-level [`execute_notebook`](@ref) API remains an in-process primitive and can see the
 caller's process-global `ENV`. Use `build_slates` for isolated documentation builds.
