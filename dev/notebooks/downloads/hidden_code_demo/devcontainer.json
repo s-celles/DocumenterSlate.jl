@@ -1,0 +1,6 @@
+{
+  "name": "hidden_code_demo notebook inspection",
+  "build": { "dockerfile": "Dockerfile" },
+  "forwardPorts": [8765],
+  "remoteUser": "root"
+}

@@ -178,12 +178,14 @@ KaimonSlate.serve_notebook("hello.jl"; inactive = true)</code></pre>
 
     | Artifact | SHA-256 |
     |:--|:--|
+    | [`Dockerfile`](downloads/hello/Dockerfile) | `b9b5a65cc1ebe0fdc21625b77480f709e39dd2cd908218f5d4681b164c3cff1b` |
     | [`Manifest.toml`](downloads/hello/Manifest.toml) | `820a299a90e258ea080e5781bb4a2f354f439c3d48ae22be9ceec96de918602c` |
-    | [`PROVENANCE.toml`](downloads/hello/PROVENANCE.toml) | `39a4e4bdaf6f6d77d1a58c24289be48396ab1d78819c003f965278db24267a04` |
+    | [`PROVENANCE.toml`](downloads/hello/PROVENANCE.toml) | `9535d8f98afbfdc4c488de81f25ad312af9a675f2b72990752348467e98fbf43` |
     | [`Project.toml`](downloads/hello/Project.toml) | `f611f3118041332ea446aa24d11ad03397fcd156b61a97ccd4d0313008befb04` |
-    | [`README.md`](downloads/hello/README.md) | `2b51f476d18797ba12bbd186fef23d4696047e2924557922857a3880de9ba0e9` |
+    | [`README.md`](downloads/hello/README.md) | `ee8632e3e789a2dd99f19b98dedb6b56ced27e9743b9e2ddf606cedf9a07d4aa` |
+    | [`devcontainer.json`](downloads/hello/devcontainer.json) | `8776646c7150dcd77690c6173db06c928226aece219289217ce264ba8622c525` |
     | [`hello.jl`](downloads/hello/hello.jl) | `3efd9ee02987f58d97d230b8355192eb521d6accc4dbf4b18a658ec674034601` |
-    | [`hello.tar.gz`](downloads/hello/hello.tar.gz) | `5c4e3ef1bd29ef398a7c6a996eca2e61c2d33019bcac0b3f87c37e5d2af15422` |
+    | [`hello.tar.gz`](downloads/hello/hello.tar.gz) | `270b0edf6e295e026ba9561c5aaf172774d49f13b30c332e843177ef2791995a` |
 
 
 # [Hello, DocumenterSlate](@id hello-hello-documenterslate)
@@ -257,12 +259,14 @@ KaimonSlate.serve_notebook("hidden_code_demo.jl"; inactive = true)</code></pre>
 
     | Artifact | SHA-256 |
     |:--|:--|
+    | [`Dockerfile`](downloads/hidden_code_demo/Dockerfile) | `1214607cf95b8322d39611858f4e19572ac3c7a8a07b9d8fc723de9de02ae354` |
     | [`Manifest.toml`](downloads/hidden_code_demo/Manifest.toml) | `820a299a90e258ea080e5781bb4a2f354f439c3d48ae22be9ceec96de918602c` |
-    | [`PROVENANCE.toml`](downloads/hidden_code_demo/PROVENANCE.toml) | `898a6d337818e36b11b81547b9e435f25e4a9d82d0351e19ef6c8ae37746493a` |
+    | [`PROVENANCE.toml`](downloads/hidden_code_demo/PROVENANCE.toml) | `0df00a4c9c83919d0f3c2ac07bbe6865c51af3e43db25ebc67fa74bb49849cca` |
     | [`Project.toml`](downloads/hidden_code_demo/Project.toml) | `f611f3118041332ea446aa24d11ad03397fcd156b61a97ccd4d0313008befb04` |
-    | [`README.md`](downloads/hidden_code_demo/README.md) | `a96d6a64a9ca1ca08b95cc26cdb63606ecb8fb3ec37799d3353bbff105aa1c7f` |
+    | [`README.md`](downloads/hidden_code_demo/README.md) | `db4e285402c597ed4b98e12835158a88ef203d4a9cc1cd6d848caf5a76d2c505` |
+    | [`devcontainer.json`](downloads/hidden_code_demo/devcontainer.json) | `64a9fc063666df831bf6f932766e9980c81d4c74d17e0d0ec867287542789ee7` |
     | [`hidden_code_demo.jl`](downloads/hidden_code_demo/hidden_code_demo.jl) | `9f2a885759e883277fef7053a9e022caeb2ce842ea313800222b46757287ad23` |
-    | [`hidden_code_demo.tar.gz`](downloads/hidden_code_demo/hidden_code_demo.tar.gz) | `0d876dca55b6df3766fb2452e29facbd52584ccd9603be3b3ecb1cd469289ba4` |
+    | [`hidden_code_demo.tar.gz`](downloads/hidden_code_demo/hidden_code_demo.tar.gz) | `b92fcc0698452a4e6e6c5fb82f704778f185016335ff48e692e912a078443a40` |
 
 
 # [Hiding a cell's source](@id hidden_code_demo-hiding-a-cell-s-source)
