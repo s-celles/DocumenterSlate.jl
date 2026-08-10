@@ -1,0 +1,87 @@
+.slate-actions {
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 0 0 1rem;
+}
+
+.content a.slate-download-button {
+  align-items: center;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  border: 1px solid #1e40af;
+  border-radius: 0.45rem;
+  box-shadow: 0 0.15rem 0.35rem rgb(15 23 42 / 18%);
+  color: #fff !important;
+  display: inline-flex;
+  font-weight: 700;
+  gap: 0.45rem;
+  min-height: 2.5rem;
+  padding: 0.55rem 0.9rem;
+  text-decoration: none;
+  transition: box-shadow 120ms ease, transform 120ms ease;
+}
+
+.content a.slate-download-button::before {
+  content: "↓";
+  font-size: 1.2em;
+  line-height: 1;
+}
+
+.content a.slate-download-button:hover {
+  box-shadow: 0 0.3rem 0.65rem rgb(15 23 42 / 25%);
+  transform: translateY(-1px);
+}
+
+.content a.slate-download-button:focus-visible,
+.slate-inspect summary:focus-visible {
+  outline: 0.2rem solid #f59e0b;
+  outline-offset: 0.15rem;
+}
+
+.slate-inspect {
+  border: 1px solid currentColor;
+  border-radius: 0.45rem;
+  max-width: 48rem;
+  opacity: 0.9;
+  padding: 0.45rem 0.75rem;
+}
+
+.slate-inspect summary {
+  cursor: pointer;
+  font-weight: 700;
+  min-height: 1.6rem;
+}
+
+.slate-inspect[open] summary {
+  margin-bottom: 0.75rem;
+}
+
+.slate-inspect pre:last-child {
+  margin-bottom: 0;
+}
+
+@media (prefers-color-scheme: dark) {
+  .content a.slate-download-button {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    border-color: #60a5fa;
+  }
+}
+
+@media (max-width: 40rem) {
+  .slate-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .content a.slate-download-button {
+    justify-content: center;
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .content a.slate-download-button {
+    transition: none;
+  }
+}

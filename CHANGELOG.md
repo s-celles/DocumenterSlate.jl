@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   arbitrary-code warnings, and KaimonSlate's `inactive = true` inspection command.
 - Distinct `Download notebook` and collapsed `Inspect locally` actions in each notebook panel;
   neither action launches code or contacts a local service.
+- Responsive, keyboard-focus-visible styling for the download and inspection actions, including
+  dark-color-scheme and reduced-motion adaptations.
 - Per-notebook local instructions presenting isolated-container, pinned-host, and native-app
   workflows in increasing order of host exposure.
 - A distribution guide documenting verification, safe inspection, execution risks, and the

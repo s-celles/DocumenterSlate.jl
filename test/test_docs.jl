@@ -9,6 +9,15 @@
     make_source = read(joinpath(root, "docs", "make.jl"), String)
     @test occursin(r"if\s+get\(ENV,\s*\"CI\"", make_source)
     @test occursin("edit_link = \"main\"", make_source)
+    @test occursin("assets/documenterslate.css", make_source)
+
+    stylesheet = joinpath(root, "docs", "src", "assets", "documenterslate.css")
+    @test isfile(stylesheet)
+    css = read(stylesheet, String)
+    @test occursin(".slate-download-button", css)
+    @test occursin(".slate-inspect", css)
+    @test occursin("prefers-color-scheme: dark", css)
+    @test occursin("@media", css)
 
     readme = read(joinpath(root, "README.md"), String)
     @test occursin("https://s-celles.github.io/DocumenterSlate.jl/", readme)

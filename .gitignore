@@ -13,6 +13,7 @@
 !*.md
 !*.yml
 !*.yaml
+!/docs/src/assets/documenterslate.css
 !.gitignore
 !.gitattributes
 !justfile
