@@ -25,12 +25,16 @@ using Documenter, DocumenterSlate
 
 result = build_slates(
     SlateBuildOptions(; source = joinpath(@__DIR__, "..", "notebooks"),
-                       output = joinpath(@__DIR__, "src", "notebooks")),
+                       output = joinpath(@__DIR__, "src", "notebooks"),
+                       worker_environment = Dict("LANG" => "C.UTF-8")),
 )
 
 makedocs(; sitename = "MyPkg.jl",
          pages = ["Home" => "index.md", "Notebooks" => result.pages])
 ```
+
+Each cache miss runs in a separate Julia process with the notebook's adjacent project activated.
+The parent environment is denied by default; `worker_environment` is the explicit allowlist.
 
 ## Public API
 
@@ -173,11 +177,11 @@ KaimonSlate.serve_notebook("hello.jl"; inactive = true)</code></pre>
 
     | Artifact | SHA-256 |
     |:--|:--|
-    | [`PROVENANCE.toml`](downloads/hello/PROVENANCE.toml) | `b9ba88b6e839919b4f93562aed02b44495487199e9e02181a9366025a87fa475` |
+    | [`PROVENANCE.toml`](downloads/hello/PROVENANCE.toml) | `7e226d2d184193e126118fa370e8481534345b5173a6fc653396a4cd10880c9f` |
     | [`Project.toml`](downloads/hello/Project.toml) | `f611f3118041332ea446aa24d11ad03397fcd156b61a97ccd4d0313008befb04` |
     | [`README.md`](downloads/hello/README.md) | `2b51f476d18797ba12bbd186fef23d4696047e2924557922857a3880de9ba0e9` |
     | [`hello.jl`](downloads/hello/hello.jl) | `3efd9ee02987f58d97d230b8355192eb521d6accc4dbf4b18a658ec674034601` |
-    | [`hello.tar.gz`](downloads/hello/hello.tar.gz) | `7d7f9ac7ba917819bcb7cd212ffcd2c1a46d3da3cbc212aa8838785cdb37023b` |
+    | [`hello.tar.gz`](downloads/hello/hello.tar.gz) | `d84f0c9171d908e16cf9e09425c3258f1f252dced69c07c458424d2aed1a63f2` |
 
 
 # [Hello, DocumenterSlate](@id hello-hello-documenterslate)
@@ -251,11 +255,11 @@ KaimonSlate.serve_notebook("hidden_code_demo.jl"; inactive = true)</code></pre>
 
     | Artifact | SHA-256 |
     |:--|:--|
-    | [`PROVENANCE.toml`](downloads/hidden_code_demo/PROVENANCE.toml) | `fd0dafc94357af3f7d625eb84d5dd75c645d410725becaadcf0f3cecccbc01c9` |
+    | [`PROVENANCE.toml`](downloads/hidden_code_demo/PROVENANCE.toml) | `371ef5f73caa9a138985aeab26667531fbbcb63d98ceea8fc236da6c884d7dd3` |
     | [`Project.toml`](downloads/hidden_code_demo/Project.toml) | `f611f3118041332ea446aa24d11ad03397fcd156b61a97ccd4d0313008befb04` |
     | [`README.md`](downloads/hidden_code_demo/README.md) | `a96d6a64a9ca1ca08b95cc26cdb63606ecb8fb3ec37799d3353bbff105aa1c7f` |
     | [`hidden_code_demo.jl`](downloads/hidden_code_demo/hidden_code_demo.jl) | `9f2a885759e883277fef7053a9e022caeb2ce842ea313800222b46757287ad23` |
-    | [`hidden_code_demo.tar.gz`](downloads/hidden_code_demo/hidden_code_demo.tar.gz) | `f793bb26b55bf25284efdb546fcb1efcd8072c2dc98a99d60e9874eeab136174` |
+    | [`hidden_code_demo.tar.gz`](downloads/hidden_code_demo/hidden_code_demo.tar.gz) | `4ef035dbe2580dff36e5b8b864e9e48ca99d15d26c97af47fb14503e4d403c15` |
 
 
 # [Hiding a cell's source](@id hidden_code_demo-hiding-a-cell-s-source)
@@ -339,14 +343,25 @@ interactive hub directly, not yet implemented) would reopen this question — th
 expose the agent's tool-calling surface, and no upstream disable mechanism has been confirmed
 to exist. Do not assume this guarantee carries over once a hub-based exporter ships.
 
-## Environment variables (REQ-SEC-02)
+## Process, project, and environment isolation (REQ-EXE-02, REQ-SEC-02)
 
-Nothing in `DocumenterSlate.jl` sandboxes `ENV` at the Julia level — `Base.ENV` is
-process-global and reachable from any Julia code regardless of what this package does
-(documented in [`execute_notebook`](@ref)'s own docstring). The actual control is at the CI
-layer: `render-notebooks`' `env:` block is an explicit, minimal allowlist, not the runner's
-full environment. If you write your own workflow, don't assume the library protects secrets
-from a notebook's own `ENV[...]` calls — your workflow's `env:` block is what does.
+`build_slates` renders every cache miss in a dedicated Julia child process. For a notebook with
+an adjacent `Project.toml`, that project is activated before cells run. A timeout terminates and
+waits for the operating-system process, including a worker stuck in non-yielding code. The
+adjacent project must already be instantiated; documentation builds do not modify it or fetch
+dependencies implicitly.
+
+The child does not inherit the parent's environment. Only Julia's internal depot/load-path/thread
+settings and `SlateBuildOptions.worker_environment` are passed. The latter is an explicit
+`Dict{String,String}`; use it only for reviewed, non-secret values that the notebook genuinely
+needs. Its contents affect the cache fingerprint.
+
+For a notebook carrying only a `Slate.env` footer, DocumenterSlate creates a temporary project
+from the declared name/UUID entries. It does not yet resolve or instantiate that project into a
+published `Manifest.toml`; this remains the reproducibility gap for footer-only notebooks.
+
+The lower-level [`execute_notebook`](@ref) API remains an in-process primitive and can see the
+caller's process-global `ENV`. Use `build_slates` for isolated documentation builds.
 
 ## Network egress (REQ-SEC-04) — monitored, not yet blocked
 
