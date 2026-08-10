@@ -84,6 +84,7 @@ module DocumenterSlate
 
 import CodecZlib
 import Distributed
+import Documenter
 import KaimonSlate
 import Logging
 import Pkg
@@ -100,6 +101,7 @@ include("execute.jl")
 include("render_markdown.jl")
 include("assets.jl")
 include("pages.jl")
+include("plugin.jl")
 include("cache.jl")
 include("distribution.jl")
 include("verify_bundle.jl")
@@ -114,7 +116,7 @@ export SlateBuildOptions, SlateOutputOptions, discover_notebooks,
        execute_notebook, ExecutedNotebook, CellResult,
        SlateExecutionError, SlateExecutionTimeoutError,
        cell_to_markdown, extract_assets!,
-       build_pages, SlateBuildResult,
+       build_pages, SlateBuildResult, SlatePlugin,
        build_slates,
        verify_slate_bundle, SlateBundleVerification,
        collect_build_statuses, write_github_step_summary

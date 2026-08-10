@@ -23,7 +23,7 @@ result = build_slates(
                        worker_environment = Dict("LANG" => "C.UTF-8")),
 )
 
-makedocs(; sitename = "MyPkg.jl",
+makedocs(; sitename = "MyPkg.jl", plugins = [SlatePlugin(result)],
          pages = ["Home" => "index.md", "Notebooks" => result.pages])
 ```
 
@@ -53,6 +53,7 @@ cell_to_markdown
 extract_assets!
 build_pages
 SlateBuildResult
+SlatePlugin
 verify_slate_bundle
 SlateBundleVerification
 collect_build_statuses

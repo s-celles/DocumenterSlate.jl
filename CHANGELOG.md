@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   to notebook workers; it participates in the composite cache fingerprint.
 - Isolated resolution of `Slate.env` footers into manifest-backed notebook environments, retained
   in the build cache and published with every downloadable notebook bundle.
+- `SlatePlugin <: Documenter.Plugin`, carrying a `SlateBuildResult` through Documenter's supported
+  `plugins` interface and ready for the M4 expanders.
 - `verify_slate_bundle` and `SlateBundleVerification`: verify exhaustive artifact checksums and
   provenance coherence for a distribution directory or safely extracted `.tar.gz`, without
   executing notebook code.

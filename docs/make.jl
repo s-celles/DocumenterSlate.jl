@@ -88,6 +88,7 @@ makedocs(;
     # helper functions carry docstrings for maintainers reading the source, but were never
     # meant to be part of the public doc site's `@docs`/cross-reference graph.
     checkdocs = :exports,
+    plugins = [SlatePlugin(result)],
     pages = pages,
 )
 

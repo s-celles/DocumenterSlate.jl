@@ -26,7 +26,7 @@ remaining trust boundary and embedded-rendering work is complete.
    a malicious notebook deliberately rewriting another cache entry.
 2. **Complete M4 Documenter integration.** Implement `SlatePlugin`, `@slate`, and
    `@slate-download` without relying on unstable Documenter internals where a public extension
-   point is available.
+   point is available. `SlatePlugin` itself is complete; the two expanders remain.
 3. **Embedded outputs.** Implement self-contained HTML export and `format = :iframe`; add PDF and
    KaimonSlate bundle downloads when the upstream export contract is stable.
 4. **Finish configurable output controls.** Make `provenance`, `downloads`, `interactivity`, and
