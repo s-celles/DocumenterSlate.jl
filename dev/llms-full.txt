@@ -29,7 +29,7 @@ result = build_slates(
                        worker_environment = Dict("LANG" => "C.UTF-8")),
 )
 
-makedocs(; sitename = "MyPkg.jl",
+makedocs(; sitename = "MyPkg.jl", plugins = [SlatePlugin(result)],
          pages = ["Home" => "index.md", "Notebooks" => result.pages])
 ```
 
@@ -59,6 +59,7 @@ cell_to_markdown
 extract_assets!
 build_pages
 SlateBuildResult
+SlatePlugin
 verify_slate_bundle
 SlateBundleVerification
 collect_build_statuses
@@ -178,11 +179,11 @@ KaimonSlate.serve_notebook("hello.jl"; inactive = true)</code></pre>
     | Artifact | SHA-256 |
     |:--|:--|
     | [`Manifest.toml`](downloads/hello/Manifest.toml) | `820a299a90e258ea080e5781bb4a2f354f439c3d48ae22be9ceec96de918602c` |
-    | [`PROVENANCE.toml`](downloads/hello/PROVENANCE.toml) | `ed168d45d21a0e5f95f4c3f1f2e6cd1b35d75789c410b574c7236bf3dc9d5d75` |
+    | [`PROVENANCE.toml`](downloads/hello/PROVENANCE.toml) | `39a4e4bdaf6f6d77d1a58c24289be48396ab1d78819c003f965278db24267a04` |
     | [`Project.toml`](downloads/hello/Project.toml) | `f611f3118041332ea446aa24d11ad03397fcd156b61a97ccd4d0313008befb04` |
     | [`README.md`](downloads/hello/README.md) | `2b51f476d18797ba12bbd186fef23d4696047e2924557922857a3880de9ba0e9` |
     | [`hello.jl`](downloads/hello/hello.jl) | `3efd9ee02987f58d97d230b8355192eb521d6accc4dbf4b18a658ec674034601` |
-    | [`hello.tar.gz`](downloads/hello/hello.tar.gz) | `128e96e5d944bff04936c44710aced905d6b3ef70c484d59b1e83336c099074c` |
+    | [`hello.tar.gz`](downloads/hello/hello.tar.gz) | `5c4e3ef1bd29ef398a7c6a996eca2e61c2d33019bcac0b3f87c37e5d2af15422` |
 
 
 # [Hello, DocumenterSlate](@id hello-hello-documenterslate)
@@ -257,11 +258,11 @@ KaimonSlate.serve_notebook("hidden_code_demo.jl"; inactive = true)</code></pre>
     | Artifact | SHA-256 |
     |:--|:--|
     | [`Manifest.toml`](downloads/hidden_code_demo/Manifest.toml) | `820a299a90e258ea080e5781bb4a2f354f439c3d48ae22be9ceec96de918602c` |
-    | [`PROVENANCE.toml`](downloads/hidden_code_demo/PROVENANCE.toml) | `544eccfa9fa0003b2d16be21d299da22fc1d133d3ea6eaeda0c38e46a7b46bf5` |
+    | [`PROVENANCE.toml`](downloads/hidden_code_demo/PROVENANCE.toml) | `898a6d337818e36b11b81547b9e435f25e4a9d82d0351e19ef6c8ae37746493a` |
     | [`Project.toml`](downloads/hidden_code_demo/Project.toml) | `f611f3118041332ea446aa24d11ad03397fcd156b61a97ccd4d0313008befb04` |
     | [`README.md`](downloads/hidden_code_demo/README.md) | `a96d6a64a9ca1ca08b95cc26cdb63606ecb8fb3ec37799d3353bbff105aa1c7f` |
     | [`hidden_code_demo.jl`](downloads/hidden_code_demo/hidden_code_demo.jl) | `9f2a885759e883277fef7053a9e022caeb2ce842ea313800222b46757287ad23` |
-    | [`hidden_code_demo.tar.gz`](downloads/hidden_code_demo/hidden_code_demo.tar.gz) | `9204a9683757388622cf05b3d9fd9cc76ca6834ba3fc01e183813cd777fff434` |
+    | [`hidden_code_demo.tar.gz`](downloads/hidden_code_demo/hidden_code_demo.tar.gz) | `0d876dca55b6df3766fb2452e29facbd52584ccd9603be3b3ecb1cd469289ba4` |
 
 
 # [Hiding a cell's source](@id hidden_code_demo-hiding-a-cell-s-source)
