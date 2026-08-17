@@ -14,6 +14,7 @@
 !*.yml
 !*.yaml
 !/docs/src/assets/documenterslate.css
+!/docs/src/assets/logo.svg
 !.gitignore
 !.gitattributes
 !justfile

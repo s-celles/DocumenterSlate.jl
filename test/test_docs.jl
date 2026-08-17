@@ -6,10 +6,20 @@
     @test isfile(notebook_project)
     @test haskey(TOML.parsefile(notebook_project)["deps"], "KaimonSlate")
 
+    docs_project = TOML.parsefile(joinpath(root, "docs", "Project.toml"))
+    @test haskey(docs_project["deps"], "DocumenterLandingPage")
+
     make_source = read(joinpath(root, "docs", "make.jl"), String)
     @test occursin(r"if\s+get\(ENV,\s*\"CI\"", make_source)
     @test occursin("edit_link = \"main\"", make_source)
     @test occursin("assets/documenterslate.css", make_source)
+    @test occursin("LandingPage()", make_source)
+    @test occursin("\"API Reference\" => \"api.md\"", make_source)
+
+    home_source = read(joinpath(root, "docs", "src", "index.md"), String)
+    @test occursin("layout: home", home_source)
+    @test occursin("Reactive notebooks, native documentation", home_source)
+    @test isfile(joinpath(root, "docs", "src", "assets", "logo.svg"))
 
     stylesheet = joinpath(root, "docs", "src", "assets", "documenterslate.css")
     @test isfile(stylesheet)
