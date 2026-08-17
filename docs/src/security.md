@@ -112,6 +112,21 @@ for future exporters that can honor region placement.
   `.md` source file — that is authored content, not derived output, and carries the same
   trust level as the rest of your documentation source.
 
+## Distribution and download
+
+The sections above cover the *build* side — what happens inside CI, and what the cache is and is
+not trusted for. The *download* side has its own posture, documented in full under
+[Download and inspect notebooks](@ref): DocumenterSlate deliberately offers no one-click
+"run this notebook from a URL" action. It emits no custom URL scheme, contacts no local server,
+and never suggests piping a remote download into Julia.
+
+Fetching over the network is supported as an explicit two-step sequence — download to a local
+path, then [`verify_slate_bundle`](@ref), which checks an exhaustive `SHA256SUMS` and rejects
+links, nested paths, and non-regular archive entries before extracting, without evaluating a
+single cell. What that buys you is integrity, not origin: `PROVENANCE.toml` is build metadata,
+not a signature, and an attestation-bearing bundle is rejected outright rather than presented as
+trusted (REQ-TRUST-03 remains open).
+
 ## What none of this proves
 
 An attestation or a clean cache lookup proves an artifact's *origin* — that it came from this

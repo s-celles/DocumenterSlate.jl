@@ -8,6 +8,17 @@ The prominent **Download notebook** action downloads the archive only. **Inspect
 collapsed disclosure containing verification and inactive-preview commands; expanding it performs
 no network request and executes nothing on the reader's machine.
 
+!!! note "There is deliberately no one-click launch"
+    DocumenterSlate never offers a "download and run this notebook from a URL" action, and this
+    is a design decision rather than a missing feature. A KaimonSlate notebook is arbitrary
+    Julia code: instantiating its environment can run package build scripts, and opening it in
+    live mode can execute anything. The documentation therefore never emits a custom URL scheme,
+    never contacts a local server, and never suggests piping a remote download into Julia.
+
+    Fetching a notebook over the network is supported — see
+    [Download from a URL](@ref) — but only as an explicit *verify-then-run* sequence you carry
+    out yourself.
+
 ## Verify before opening
 
 Download the notebook directory or archive, then verify the files before using them:
@@ -34,6 +45,38 @@ result.provenance
 Verification rejects missing, extra, modified, duplicated, or dangerously named files. For an
 archive, links and nested paths are rejected before extraction. The source and optional manifest
 digests are also checked against `PROVENANCE.toml`. An integrity failure raises `ArgumentError`.
+
+## Download from a URL
+
+Fetching a bundle over the network is fine; treating the fetch itself as a launch is not. Split
+it into two steps that you control, and never chain them into a single command.
+
+First, download the archive to a local path and check what you received:
+
+```julia
+using Downloads, DocumenterSlate
+
+archive = Downloads.download("https://example.org/notebooks/downloads/demo/demo.tar.gz",
+                             joinpath(mktempdir(), "demo.tar.gz"))
+result = verify_slate_bundle(archive)
+result.artifacts
+result.provenance
+```
+
+[`verify_slate_bundle`](@ref) reads the archive's entries and rejects links, nested paths, and
+non-regular files *before* extracting anything, then checks every artifact against `SHA256SUMS`
+and cross-checks the notebook source and optional manifest against `PROVENANCE.toml`. It never
+evaluates notebook cells and never instantiates the environment, so it is safe to run on a bundle
+you have not yet reviewed. An integrity or structural failure raises `ArgumentError`.
+
+Only after verification succeeds, and after reading the `.jl` source, extract the archive and use
+one of the routes in [Run deliberately](@ref) — the container route first.
+
+`result.provenance` tells you where the bundle claims to come from, not that the claim is true:
+it is build metadata, not a signature. Compare `repository` and `git_sha` against the repository
+you actually trust, and treat `ci_produced = false` as a locally built bundle. Until forge
+attestations are authenticated, a URL is not evidence of origin — anyone can serve a well-formed
+bundle.
 
 ## Inspect without evaluating cells
 

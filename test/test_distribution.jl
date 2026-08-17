@@ -62,6 +62,51 @@
     end
 end
 
+@testitem "distribution: archives are normalized and built without an external tar" begin
+    using DocumenterSlate
+    using CodecZlib
+    using Tar
+
+    mktempdir() do root
+        notebook_dir = joinpath(root, "notebook")
+        mkpath(notebook_dir)
+        source = joinpath(notebook_dir, "example.jl")
+        write(source, "#%% code id=x\n1 + 1\n")
+        write(joinpath(notebook_dir, "Project.toml"), "[deps]\n")
+        write(joinpath(notebook_dir, "Manifest.toml"), "julia_version = \"1.12.0\"\n")
+
+        project = resolve_notebook_project(source)
+        dist = DocumenterSlate._write_distribution!(
+            source, project, joinpath(root, "output"), "example";
+            repository = "s-celles/DocumenterSlate.jl",
+            git_sha = "abc123",
+            run_id = "42",
+            build_timestamp = "2026-08-09T00:00:00Z",
+        )
+
+        archive = joinpath(dist.directory, "example.tar.gz")
+        headers = open(archive) do compressed
+            Tar.list(CodecZlib.GzipDecompressorStream(compressed))
+        end
+
+        @test !isempty(headers)
+        for header in headers
+            @test header.type == :file
+            @test basename(header.path) == header.path
+            @test header.mode in (0o644, 0o755)
+        end
+
+        # The archive must not contain itself. It does carry its own SHA256SUMS, which is
+        # what lets verify_slate_bundle check an extracted archive.
+        names = Set(header.path for header in headers)
+        @test !("example.tar.gz" in names)
+        @test names == Set(filter(!=("example.tar.gz"), readdir(dist.directory)))
+
+        # The bundle is verifiable through the documented download-from-a-URL path.
+        @test verify_slate_bundle(archive).archive
+    end
+end
+
 @testitem "distribution: footer notebooks publish a prepared Project and Manifest" begin
     using DocumenterSlate
 
