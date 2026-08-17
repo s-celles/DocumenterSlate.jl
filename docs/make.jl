@@ -5,7 +5,7 @@ import Pkg
 Pkg.develop(Pkg.PackageSpec(path = dirname(@__DIR__)))
 Pkg.instantiate()
 
-using Documenter, DocumenterSlate
+using Documenter, DocumenterLandingPage, DocumenterSlate
 
 opts = SlateBuildOptions(;
     source = joinpath(@__DIR__, "notebooks"),
@@ -27,6 +27,7 @@ pages = [
     "Distribution" => "distribution.md",
     "Notebooks" => notebook_pages,
     "Security" => "security.md",
+    "API Reference" => "api.md",
 ]
 
 # llms.txt / llms-full.txt (CLAUDE.md convention: generated under docs/, not the repo
@@ -88,7 +89,7 @@ makedocs(;
     # helper functions carry docstrings for maintainers reading the source, but were never
     # meant to be part of the public doc site's `@docs`/cross-reference graph.
     checkdocs = :exports,
-    plugins = [SlatePlugin(result)],
+    plugins = [LandingPage(), SlatePlugin(result)],
     pages = pages,
 )
 
