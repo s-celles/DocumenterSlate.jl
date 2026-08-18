@@ -86,7 +86,7 @@ The parent environment is denied by default; `worker_environment` is the explici
 3. A separate deploy job consumes that exact cache with `execution = :never` and publishes the
    generated Markdown, assets, and downloadable bundles through Documenter.
 
-This documentation site uses that two-job workflow itself. The [Notebooks](/notebooks/hello/)
+This documentation site uses that two-job workflow itself. The [Notebooks](notebooks/hello.md)
 section is generated from the real KaimonSlate sources in this repository, not from fixtures or
 hand-written output.
 
