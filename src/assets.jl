@@ -10,9 +10,12 @@ const _ASSET_MIME_EXTENSIONS = [
 ]
 
 function _asset_bytes(value, mime::MIME)
-    Base.showable(mime, value) || return nothing
+    # Notebook cells can load plotting packages and define display methods after this
+    # package's code has been compiled. Cross the world-age boundary for both MIME
+    # discovery and rendering so freshly loaded Makie/GeometryBasics methods are visible.
+    Base.invokelatest(Base.showable, mime, value) || return nothing
     io = IOBuffer()
-    show(io, mime, value)
+    Base.invokelatest(show, io, mime, value)
     return take!(io)
 end
 

@@ -57,6 +57,29 @@ end
     @test !occursin("```jldoctest", md)
 end
 
+@testitem "cell_to_markdown: uses rich HTML loaded by the notebook" begin
+    using DocumenterSlate
+    using Test
+
+    mktempdir() do dir
+        notebook = joinpath(dir, "fresh-html.jl")
+        write(notebook, """
+        try; import KaimonSlate; catch; error("no runtime"); end; KaimonSlate.standalone!(@__MODULE__; dir=@__DIR__)
+
+        #%% code id=table
+        struct FreshHTML end
+        Base.show(io::IO, ::MIME\"text/html\", ::FreshHTML) = print(io, "<table><tr><td>rich</td></tr></table>")
+        FreshHTML()
+        """)
+
+        executed = execute_notebook(TextualReplayExporter(), notebook)
+        rendered = cell_to_markdown(only(executed.cells))
+
+        @test occursin("```@raw html", rendered)
+        @test occursin("<table><tr><td>rich</td></tr></table>", rendered)
+    end
+end
+
 @testitem "cell_to_markdown: an errored cell renders a visible admonition" begin
     using DocumenterSlate
     using Test

@@ -1,6 +1,8 @@
 @testitem "distribution: source, environment, provenance, and checksums are published" begin
     using DocumenterSlate
+    using CodecZlib
     using SHA
+    using Tar
     using TOML
 
     mktempdir() do root
@@ -59,6 +61,13 @@
         )
         @test read(joinpath(dist.directory, "example.tar.gz")) ==
               read(joinpath(second.directory, "example.tar.gz"))
+
+        open(CodecZlib.GzipDecompressorStream,
+             joinpath(dist.directory, "example.tar.gz")) do stream
+            headers = Tar.list(stream)
+            @test issorted(getfield.(headers, :path))
+            @test all(header -> header.mode in (0o644, 0o755), headers)
+        end
     end
 end
 

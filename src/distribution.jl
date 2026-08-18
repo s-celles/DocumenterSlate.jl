@@ -42,11 +42,14 @@ function _write_reproducible_archive!(directory::AbstractString, slug::AbstractS
     mktempdir() do temporary
         temporary_archive = joinpath(temporary, archive_name)
         open(temporary_archive, "w") do raw
-            compressed = CodecZlib.GzipCompressorStream(raw)
+            gzip = CodecZlib.GzipCompressorStream(raw)
             try
-                Tar.create(directory, compressed)
+                # Tar.create sorts entries and normalizes uid/gid, mtime and modes.
+                # Keeping both archive layers in-process makes this work with BSD tar
+                # on macOS and without an external tar executable on Windows.
+                Tar.create(directory, gzip; portable = true)
             finally
-                close(compressed)
+                close(gzip)
             end
         end
         cp(temporary_archive, archive_path)
