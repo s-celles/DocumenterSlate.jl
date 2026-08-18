@@ -103,6 +103,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Distribution archives are built with `Tar.jl` instead of an external `tar`, so entries are
+  flat regular files (no `./` prefix, no directory entry) with normalized modes, and the build
+  no longer depends on GNU tar options that BSD and macOS hosts do not provide.
 - Isolated workers bootstrap DocumenterSlate from the caller's already-instantiated project,
   allowing clean documentation runners without an incidental root `Manifest.toml`.
 - Worker timeouts use an unconditional process kill on Unix, including for package operations

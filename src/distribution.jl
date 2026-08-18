@@ -33,12 +33,22 @@ function _write_sha256sums!(directory::AbstractString)
     return sha256
 end
 
+# Tar.jl writes normalized headers -- flat paths, no `./` prefix, mtime 0, owner and group 0,
+# and modes clamped to 0o644/0o755 -- so the archive is reproducible without shelling out to a
+# GNU tar that BSD and macOS hosts do not provide.
 function _write_reproducible_archive!(directory::AbstractString, slug::AbstractString)
     archive_name = string(slug, ".tar.gz")::String
     archive_path = joinpath(directory, archive_name)
     mktempdir() do temporary
         temporary_archive = joinpath(temporary, archive_name)
-        run(`tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner --mode=u=rwX,go=rX --format=ustar -czf $temporary_archive -C $directory .`)
+        open(temporary_archive, "w") do raw
+            compressed = CodecZlib.GzipCompressorStream(raw)
+            try
+                Tar.create(directory, compressed)
+            finally
+                close(compressed)
+            end
+        end
         cp(temporary_archive, archive_path)
     end
     return archive_name

@@ -106,7 +106,8 @@ code harmless; review the mount and network permissions as well.
 ## Reproducibility and current scope
 
 Archives use sorted entries, a zero timestamp, normalized ownership and normalized file modes.
-`SHA256SUMS` covers every artifact except itself. HTML/PDF exports, self-contained KaimonSlate
+They are written in-process with `Tar.jl`, so every entry is a flat regular file and the build
+does not depend on a system `tar`. `SHA256SUMS` covers every artifact except itself. HTML/PDF exports, self-contained KaimonSlate
 bundles, and forge attestations remain later roadmap work. Until attestation authentication is
 implemented, `verify_slate_bundle` rejects an archive containing an attestation rather than
 presenting unverified metadata as trusted.
