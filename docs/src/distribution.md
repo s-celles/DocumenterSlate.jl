@@ -8,6 +8,58 @@ The prominent **Download notebook** action downloads the archive only. **Inspect
 collapsed disclosure containing verification and inactive-preview commands; expanding it performs
 no network request and executes nothing on the reader's machine.
 
+Below the actions, every notebook page prints the same four-step chain — download, verify, read,
+run — with that notebook's own filenames substituted in. The downloaded bundle's `README.md`
+repeats the identical chain, so a reader who kept only the archive still has the whole story. The
+steps are rendered from a single definition in `DocumenterSlate`, which is why the page and the
+bundle can never drift apart.
+
+## The workflow, end to end
+
+**1. Download.** [`fetch_slate_bundle`](@ref) is one call that downloads the archive over
+`https`, verifies every artifact against `SHA256SUMS`, cross-checks `PROVENANCE.toml`, and
+extracts the result. It evaluates no cell, instantiates no environment, and runs no package build
+script. It raises rather than returning an unverified bundle, so holding a [`SlateBundle`](@ref)
+means the bytes are the ones the publisher hashed:
+
+```julia
+using DocumenterSlate
+
+bundle = fetch_slate_bundle("https://example.org/docs/downloads/demo/demo.tar.gz")
+```
+
+Set [`SlateOutputOptions`](@ref)'s `canonical` to your published site's base URL and each page
+prints that first line with the notebook's real absolute URL, ready to copy. Without it the page
+falls back to the archive's site-relative path and tells the reader to copy the link from the
+**Download notebook** button.
+
+**2. Verify.** Reaching step 2 means integrity is settled; origin is not. Checksums cannot tell
+you *who* built the bundle:
+
+```julia
+bundle.provenance["repository"]
+bundle.provenance["git_sha"]
+bundle.provenance["ci_produced"]
+```
+
+Compare these against the repository you actually trust, and treat `ci_produced = false` as a
+locally built bundle. Provenance is build metadata, not a signature — anyone can serve a
+well-formed bundle. Displaying the returned `bundle` prints exactly these remaining steps.
+
+**3. Read.** `bundle.source` is plain Julia, and reading it is the only step that tells you what
+the code would actually do. KaimonSlate can serve a static view that starts no worker and
+evaluates no cell:
+
+```julia
+using KaimonSlate
+KaimonSlate.serve_notebook(bundle.source; inactive = true)
+```
+
+**4. Run deliberately.** Only after steps 2 and 3, by one of the three routes in
+[Run deliberately](@ref), ordered by host exposure. `fetch_slate_bundle` stops here on purpose:
+it will not launch the notebook for you, and no step of the chain is ever offered as a single
+chained command.
+
 !!! note "There is deliberately no one-click launch"
     DocumenterSlate never offers a "download and run this notebook from a URL" action, and this
     is a design decision rather than a missing feature. A KaimonSlate notebook is arbitrary
@@ -17,7 +69,8 @@ no network request and executes nothing on the reader's machine.
 
     Fetching a notebook over the network is supported — see
     [Download from a URL](@ref) — but only as an explicit *verify-then-run* sequence you carry
-    out yourself.
+    out yourself. [`fetch_slate_bundle`](@ref) covers the fetch-and-verify half in one call
+    precisely so the remaining half stays a separate, deliberate act.
 
 ## Verify before opening
 
@@ -51,7 +104,18 @@ digests are also checked against `PROVENANCE.toml`. An integrity failure raises 
 Fetching a bundle over the network is fine; treating the fetch itself as a launch is not. Split
 it into two steps that you control, and never chain them into a single command.
 
-First, download the archive to a local path and check what you received:
+First, download the archive to a local path and check what you received. [`fetch_slate_bundle`](@ref)
+does both, and refuses anything but `https`:
+
+```julia
+using DocumenterSlate
+
+bundle = fetch_slate_bundle("https://example.org/notebooks/downloads/demo/demo.tar.gz")
+bundle.verification.artifacts
+bundle.provenance
+```
+
+The two halves are also available separately, when you want to control the download yourself:
 
 ```julia
 using Downloads, DocumenterSlate

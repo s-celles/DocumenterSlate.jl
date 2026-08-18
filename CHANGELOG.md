@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- A complete, per-notebook download workflow — download, verify, read, run — rendered from a
+  single definition into both the notebook page's panel and the downloaded bundle's `README.md`,
+  so the two can never drift apart. Verification is step 2 of four rather than an optional aside,
+  and the run step is never chained onto the fetch.
+- `fetch_slate_bundle`/`SlateBundle`: downloads a bundle over `https`, verifies its checksums and
+  provenance coherence, and extracts it, without evaluating a cell, instantiating an environment,
+  or running a package build script. It raises rather than returning an unverified bundle, and
+  deliberately stops before launching anything; displaying the result prints the remaining steps.
+- `SlateOutputOptions.canonical`: the published site's base URL, used to print each notebook's
+  absolute archive URL in the workflow's first step. It must be `https://`; when unset, the
+  workflow falls back to the archive's site-relative path.
 - Isolated notebook rendering in a dedicated Julia process with the notebook's adjacent project
   activated, hard process termination at timeout, and a deny-by-default worker environment.
 - `SlateBuildOptions.worker_environment`, an explicit `Dict{String,String}` of variables passed

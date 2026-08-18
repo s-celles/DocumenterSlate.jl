@@ -67,7 +67,8 @@ function _build_one_notebook(path::AbstractString, meta::NotebookMeta,
             cached_distribution = _write_distribution!(
                 path, project, options.output, slug; environment_dir = cached.environment_dir,
             )
-            decorated = _decorate_page(cached.page_text, cached_distribution, slug)
+            decorated = _decorate_page(cached.page_text, cached_distribution, slug;
+                                       canonical = output_options.canonical)
             _write_output_from_cache(options.output, slug, cached; page_text = decorated)
             @info "notebook build" slug status=:cached elapsed_s=round(time() - t0; digits = 3)
             return nothing
@@ -93,7 +94,8 @@ function _build_one_notebook(path::AbstractString, meta::NotebookMeta,
                 path, prepared_project, exporter, options, output_options, meta, slug,
             )
             write(joinpath(options.output, slug * ".md"),
-                  _decorate_page(page_text, fresh_distribution, slug))
+                  _decorate_page(page_text, fresh_distribution, slug;
+                                 canonical = output_options.canonical))
 
             # Refresh the cache on every non-cache-hit build (`:auto` miss, or `:always`) so a
             # *following* `:auto`/`:never` build benefits (REQ-CACHE-01's "réutiliser" invariant

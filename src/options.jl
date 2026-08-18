@@ -100,6 +100,11 @@ Options controlling how rendered notebooks are formatted (spec §7, REQ-REN-*, A
 - `assets::Symbol = :files`: one of `:files`, `:base64`.
 - `provenance::Bool = true`: whether a provenance footer is added (REQ-REN-07).
 - `downloads::Vector{Symbol} = [:html, :pdf, :source]`: download links shown on the page.
+- `canonical::Union{Nothing,AbstractString} = nothing`: the published site's base URL (the same
+  value Documenter's `HTML(canonical = ...)` takes). When set, each notebook's download workflow
+  shows the absolute archive URL a reader can pass to [`fetch_slate_bundle`](@ref); when unset,
+  the workflow falls back to the archive's site-relative path. It must be an `https://` URL: the
+  workflow's first step fetches from it, and an unauthenticated transport is not offered.
 """
 struct SlateOutputOptions
     format::Symbol
@@ -108,6 +113,7 @@ struct SlateOutputOptions
     assets::Symbol
     provenance::Bool
     downloads::Vector{Symbol}
+    canonical::Union{Nothing,String}
 
     function SlateOutputOptions(
         format::Symbol,
@@ -116,6 +122,7 @@ struct SlateOutputOptions
         assets::Symbol,
         provenance::Bool,
         downloads::AbstractVector,
+        canonical::Union{Nothing,AbstractString} = nothing,
     )
         format in (:documenter, :embed, :iframe) || throw(ArgumentError(
             "`format` must be one of `:documenter`, `:embed`, `:iframe`; got `:$format`",
@@ -126,7 +133,19 @@ struct SlateOutputOptions
         assets in (:files, :base64) || throw(ArgumentError(
             "`assets` must be one of `:files`, `:base64`; got `:$assets`",
         ))
-        return new(format, interactivity, show_code, assets, provenance, collect(Symbol, downloads))
+        normalized_canonical = nothing
+        if canonical !== nothing
+            startswith(canonical, "https://") || throw(ArgumentError(
+                "`canonical` must be an `https://` site URL; got $(repr(canonical))",
+            ))
+            length(canonical) > length("https://") || throw(ArgumentError(
+                "`canonical` must name a host; got $(repr(canonical))",
+            ))
+            normalized_canonical = endswith(canonical, "/") ? String(canonical) :
+                                   String(canonical) * "/"
+        end
+        return new(format, interactivity, show_code, assets, provenance,
+                   collect(Symbol, downloads), normalized_canonical)
     end
 end
 
@@ -137,6 +156,8 @@ function SlateOutputOptions(;
     assets::Symbol = :files,
     provenance::Bool = true,
     downloads = [:html, :pdf, :source],
+    canonical::Union{Nothing,AbstractString} = nothing,
 )
-    return SlateOutputOptions(format, interactivity, show_code, assets, provenance, downloads)
+    return SlateOutputOptions(format, interactivity, show_code, assets, provenance, downloads,
+                              canonical)
 end

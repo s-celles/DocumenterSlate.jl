@@ -24,6 +24,8 @@ SlateBuildResult
 SlatePlugin
 verify_slate_bundle
 SlateBundleVerification
+fetch_slate_bundle
+SlateBundle
 collect_build_statuses
 write_github_step_summary
 ```

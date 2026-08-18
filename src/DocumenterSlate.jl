@@ -85,6 +85,7 @@ module DocumenterSlate
 import CodecZlib
 import Distributed
 import Documenter
+import Downloads
 import KaimonSlate
 import Logging
 import Markdown
@@ -107,6 +108,7 @@ include("plugin.jl")
 include("cache.jl")
 include("distribution.jl")
 include("verify_bundle.jl")
+include("fetch_bundle.jl")
 include("isolated.jl")
 include("build.jl")
 include("ci_summary.jl")
@@ -121,6 +123,7 @@ export SlateBuildOptions, SlateOutputOptions, discover_notebooks,
        build_pages, SlateBuildResult, SlatePlugin,
        build_slates,
        verify_slate_bundle, SlateBundleVerification,
+       fetch_slate_bundle, SlateBundle,
        collect_build_statuses, write_github_step_summary
 
 end

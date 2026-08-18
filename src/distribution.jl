@@ -33,8 +33,8 @@ function _write_sha256sums!(directory::AbstractString)
     return sha256
 end
 
-# Tar.jl writes normalized headers -- flat paths, no `./` prefix, mtime 0, owner and group 0,
-# and modes clamped to 0o644/0o755 -- so the archive is reproducible without shelling out to a
+# Tar.jl writes normalized headers — flat paths, no `./` prefix, mtime 0, owner and group 0,
+# and modes clamped to 0o644/0o755 — so the archive is reproducible without shelling out to a
 # GNU tar that BSD and macOS hosts do not provide.
 function _write_reproducible_archive!(directory::AbstractString, slug::AbstractString)
     archive_name = string(slug, ".tar.gz")::String
@@ -52,6 +52,156 @@ function _write_reproducible_archive!(directory::AbstractString, slug::AbstractS
         cp(temporary_archive, archive_path)
     end
     return archive_name
+end
+
+# The whole download story, defined once and shown in both places a reader can meet a bundle:
+# the notebook page's panel, and the bundle's own README. Verification is step 2 of four rather
+# than an optional aside, and step 4 never chains a launch onto the fetch — each step is an act
+# the reader performs, in order, having read the previous one.
+function _workflow_steps(slug::AbstractString;
+                         archive_url::Union{Nothing,AbstractString} = nothing,
+                         relative_archive::Union{Nothing,AbstractString} = nothing,
+                         downloaded::Bool = false)
+    source_name = string(slug, ".jl")::String
+    archive_name = string(slug, ".tar.gz")::String
+    steps = Pair{String,Vector{String}}[]
+
+    if downloaded
+        push!(steps, "Download" => [
+            "You already have this directory. If you also kept the archive it came from, verify",
+            "that before trusting anything extracted from it:",
+            "",
+            "```julia",
+            "using DocumenterSlate",
+            "verify_slate_bundle($(repr(archive_name)))",
+            "```",
+        ])
+    else
+        url = archive_url === nothing ?
+              "https://<this site>/$(something(relative_archive, archive_name))" : archive_url
+        located = archive_url === nothing ?
+                  ["Copy the **Download notebook** link above — it is `$(something(relative_archive, archive_name))`",
+                   "on this site — and fetch it:"] :
+                  ["Fetch the archive:"]
+        push!(steps, "Download" => vcat([
+            "One call downloads the archive, checks every artifact against `SHA256SUMS`,",
+            "cross-checks `PROVENANCE.toml`, and extracts the result. It evaluates no cell and",
+            "instantiates no environment.",
+            "",
+        ], located, [
+            "",
+            "```julia",
+            "using DocumenterSlate",
+            "bundle = fetch_slate_bundle($(repr(url)))",
+            "```",
+        ]))
+    end
+
+    verify_body = downloaded ?
+        [
+            "Check the files against the checksums the bundle carries:",
+            "",
+            "```sh",
+            "sha256sum -c SHA256SUMS",
+            "```",
+            "",
+            "or, equivalently, from Julia:",
+            "",
+            "```julia",
+            "using DocumenterSlate",
+            "verify_slate_bundle(\".\")",
+            "```",
+            "",
+            "Then read `PROVENANCE.toml`. Checksums prove the bytes are intact; they say nothing",
+            "about *origin*. Compare `repository` and `git_sha` against the repository you",
+            "actually trust, and treat `ci_produced = false` as a locally built bundle.",
+            "Provenance is build metadata, not a signature — anyone can serve a well-formed",
+            "bundle.",
+        ] :
+        [
+            "Step 1 raises rather than returning an unverified bundle, so reaching this step means",
+            "the bytes are intact. If you took the download directory instead, check it with the",
+            "checksums it carries:",
+            "",
+            "```sh",
+            "sha256sum -c SHA256SUMS",
+            "```",
+            "",
+            "What checksums cannot establish, either way, is *origin*:",
+            "",
+            "```julia",
+            "bundle.provenance[\"repository\"]",
+            "bundle.provenance[\"git_sha\"]",
+            "bundle.provenance[\"ci_produced\"]",
+            "```",
+            "",
+            "Compare `repository` and `git_sha` against the repository you actually trust, and",
+            "treat `ci_produced = false` as a locally built bundle. Provenance is build metadata,",
+            "not a signature — anyone can serve a well-formed bundle.",
+        ]
+    push!(steps, "Verify" => verify_body)
+
+    read_target = downloaded ? repr(source_name) : "bundle.source"
+    push!(steps, "Read" => [
+        "A KaimonSlate notebook is plain Julia source, and reading `$(source_name)` is the only",
+        "step that tells you what the code would actually do. KaimonSlate can also serve a static",
+        "view that starts no worker and evaluates no cell:",
+        "",
+        "```julia",
+        "using KaimonSlate",
+        "KaimonSlate.serve_notebook($(read_target); inactive = true)",
+        "```",
+    ])
+
+    push!(steps, "Run deliberately" => [
+        "Only after steps 2 and 3. Instantiating the environment may run package build scripts,",
+        "and opening the notebook in live mode may execute anything. The three routes below are",
+        "ordered by how much of your host they expose.",
+        "",
+        "*Isolated container* (recommended) — keeps package installation and notebook inspection",
+        "off the host. The image opens the notebook in inactive mode; it evaluates no cell:",
+        "",
+        "```sh",
+        "podman build -t $(slug)-inspect . && podman run --rm -it -p 8765:8765 $(slug)-inspect",
+        "```",
+        "",
+        "Alternatively, open `devcontainer.json` in a compatible editor.",
+        "",
+        "*Pinned host environment* — uses the published project and manifest, but runs package",
+        "build scripts and notebook code with your host account's permissions:",
+        "",
+        "```sh",
+        "julia --project=. -e 'using Pkg; Pkg.instantiate()'",
+        "julia --project=. -e 'using KaimonSlate; KaimonSlate.serve_notebook($(repr(source_name)))'",
+        "```",
+        "",
+        "*Native application* — installing and opening the application executes code with your",
+        "host account's permissions:",
+        "",
+        "```sh",
+        "julia -e 'using Pkg; Pkg.Registry.add(Pkg.Registry.RegistrySpec(url=\"https://github.com/kahliburke/SlateRegistry\")); Pkg.Apps.add(\"KaimonSlate\")'",
+        "slate --own $(source_name)",
+        "```",
+        "",
+        "A container reduces access to the host; it does not make untrusted code harmless. Review",
+        "the mount and network permissions too.",
+    ])
+
+    return steps
+end
+
+function _workflow_markdown(steps; indent::AbstractString = "", heading::Bool = false)
+    io = IOBuffer()
+    for (index, (title, lines)) in enumerate(steps)
+        label = string(index, ". ", title)
+        println(io, indent, heading ? "## " * label : "**" * label * "**")
+        println(io, rstrip(indent))
+        for line in lines
+            println(io, isempty(line) ? rstrip(indent) : indent * line)
+        end
+        index == length(steps) || println(io, rstrip(indent))
+    end
+    return String(take!(io))
 end
 
 function _write_distribution!(notebook_path::AbstractString,
@@ -102,53 +252,11 @@ CMD [$(repr(source_name))]
 
     readme = """# $(slug) — local inspection
 
-This directory contains untrusted notebook code. Verify the files before opening them.
-Installing the environment may execute package build scripts; opening the notebook in live mode
-may execute arbitrary code.
+This directory contains untrusted notebook code. Verify the files before opening them, then read
+the source before running it. The four steps below are the whole story, in order; the site this
+bundle came from shows the same chain.
 
-Verify the downloaded files:
-
-```sh
-sha256sum -c SHA256SUMS
-```
-
-Inspect without starting a worker or executing cells:
-
-```julia
-using KaimonSlate
-KaimonSlate.serve_notebook(\"$(source_name)\"; inactive = true)
-```
-
-## 1. Isolated container (recommended)
-
-This keeps package installation and notebook inspection out of the host. The image opens the
-notebook in inactive mode; it does not evaluate cells:
-
-```sh
-podman build -t $(slug)-inspect .
-podman run --rm -it -p 8765:8765 $(slug)-inspect
-```
-
-Alternatively, open `devcontainer.json` in a compatible editor.
-
-## 2. Pinned host environment
-
-This uses the published project and manifest, but runs package build scripts and notebook code
-with your host account's permissions:
-
-```sh
-julia --project=. -e 'using Pkg; Pkg.instantiate()'
-julia --project=. -e 'using KaimonSlate; KaimonSlate.serve_notebook(\"$(source_name)\")'
-```
-
-## 3. Native application
-
-Installing and opening the application executes code with your host account's permissions:
-
-```sh
-julia -e 'using Pkg; Pkg.Registry.add(Pkg.Registry.RegistrySpec(url=\"https://github.com/kahliburke/SlateRegistry\")); Pkg.Apps.add(\"KaimonSlate\")'
-slate --own $(source_name)
-```
+$(_workflow_markdown(_workflow_steps(slug; downloaded = true); heading = true))
 """
     write(joinpath(directory, "README.md"), readme)
 
@@ -196,11 +304,15 @@ function _url_path(value::AbstractString)
     return String(take!(io))
 end
 
-function _distribution_panel(dist, slug::AbstractString)
+function _distribution_panel(dist, slug::AbstractString;
+                             canonical::Union{Nothing,AbstractString} = nothing)
     relative = replace(dist.relative_directory, '\\' => '/')
     source_name = string(slug, ".jl")::String
     archive_name = string(slug, ".tar.gz")::String
-    archive_url = _url_path(replace(joinpath(relative, archive_name), '\\' => '/'))
+    relative_archive = replace(joinpath(relative, archive_name), '\\' => '/')
+    archive_url = _url_path(relative_archive)
+    absolute_url = canonical === nothing ? nothing :
+                   (endswith(canonical, "/") ? canonical : canonical * "/") * archive_url
     safe_archive_name = _html_text(archive_name)
     safe_source_name = _html_text(source_name)
     io = IOBuffer()
@@ -210,7 +322,7 @@ function _distribution_panel(dist, slug::AbstractString)
             "\" download>Download notebook</a>")
     println(io, "  <details class=\"slate-inspect\">")
     println(io, "    <summary>Inspect locally</summary>")
-    println(io, "    <p><strong>Do not run the notebook before reviewing it.</strong> Verify the archive, then use KaimonSlate's inactive view, which does not start a worker or evaluate cells.</p>")
+    println(io, "    <p><strong>Do not run the notebook before reviewing it.</strong> If you already hold the files, these two calls verify the archive and open KaimonSlate's inactive view, which starts no worker and evaluates no cell. The full download-to-run workflow is below.</p>")
     println(io, "    <pre><code>using DocumenterSlate")
     println(io, "verify_slate_bundle(\"", safe_archive_name, "\")</code></pre>")
     println(io, "    <pre><code>using KaimonSlate")
@@ -220,21 +332,16 @@ function _distribution_panel(dist, slug::AbstractString)
     println(io, "</div>")
     println(io, "```")
     println(io, "")
-    println(io, "!!! warning \"Download and inspect safely\"")
-    println(io, "    This notebook is arbitrary code. Instantiating its environment may run package build scripts, and live opening may execute cells.")
+    println(io, "!!! warning \"Download, verify, read, then run — in that order\"")
+    println(io, "    This notebook is arbitrary code. Instantiating its environment may run package build scripts, and live opening may execute cells. There is deliberately no one-click launch: each step below is an act you perform after reading the previous one.")
+    println(io, "")
+    print(io, _workflow_markdown(
+        _workflow_steps(slug; archive_url = absolute_url, relative_archive = relative_archive);
+        indent = "    "))
     println(io, "")
     println(io, "    [Download source](", relative, "/", source_name, ") · [Checksums](", relative,
             "/SHA256SUMS) · [Provenance](", relative, "/PROVENANCE.toml) · [Local instructions](",
             relative, "/README.md)")
-    println(io, "")
-    println(io, "    Verify after downloading the directory: `sha256sum -c SHA256SUMS`.")
-    println(io, "")
-    println(io, "    Inspect without starting a worker or executing cells:")
-    println(io, "")
-    println(io, "    ```julia")
-    println(io, "    using KaimonSlate")
-    println(io, "    KaimonSlate.serve_notebook(\"", source_name, "\"; inactive = true)")
-    println(io, "    ```")
     println(io, "")
     println(io, "    | Artifact | SHA-256 |")
     println(io, "    |:--|:--|")
@@ -244,6 +351,7 @@ function _distribution_panel(dist, slug::AbstractString)
     return String(take!(io))
 end
 
-function _decorate_page(page_text::AbstractString, dist, slug::AbstractString)
-    return _distribution_panel(dist, slug) * "\n\n" * String(page_text)
+function _decorate_page(page_text::AbstractString, dist, slug::AbstractString;
+                        canonical::Union{Nothing,AbstractString} = nothing)
+    return _distribution_panel(dist, slug; canonical) * "\n\n" * String(page_text)
 end
