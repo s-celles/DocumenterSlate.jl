@@ -60,6 +60,32 @@ end
     end
 end
 
+@testitem "extract_assets!: sees display methods loaded by the notebook" begin
+    using DocumenterSlate
+    using Test
+
+    mktempdir() do dir
+        notebook = joinpath(dir, "fresh-display.jl")
+        write(notebook, """
+        try; import KaimonSlate; catch; error("no runtime"); end; KaimonSlate.standalone!(@__MODULE__; dir=@__DIR__)
+
+        #%% code id=fig
+        struct FreshPNG
+            bytes::Vector{UInt8}
+        end
+        Base.show(io::IO, ::MIME\"image/png\", image::FreshPNG) = write(io, image.bytes)
+        FreshPNG(UInt8[5, 6, 7])
+        """)
+
+        executed = execute_notebook(TextualReplayExporter(), notebook)
+        dest = joinpath(dir, "assets_out")
+        assets = extract_assets!(executed, dest)
+
+        @test haskey(assets, "fig")
+        @test read(joinpath(dest, assets["fig"])) == UInt8[5, 6, 7]
+    end
+end
+
 @testitem "extract_assets!: a plain numeric value produces no asset" begin
     using DocumenterSlate
     using Test

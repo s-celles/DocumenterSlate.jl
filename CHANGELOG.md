@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Replaced the GNU-specific archive subprocess with Julia's `Tar.jl` and `CodecZlib`,
+  preserving deterministic, portable source archives on Linux and macOS.
+- KaimonSlate `{{ expr }}` Markdown interpolations are now evaluated in notebook source
+  order, with context-aware scalar, HTML, LaTeX, and plain-text rendering.
+- Figure extraction now crosses Julia's world-age boundary, so display methods loaded by
+  notebook cells (including Makie and GeometryBasics) are visible to the renderer.
+- Code-cell values now honor explicit HTML and LaTeX MIME displays before falling back to
+  fenced plain text, producing native tables instead of internal struct representations.
+
 ### Added
 
 - Isolated notebook rendering in a dedicated Julia process with the notebook's adjacent project

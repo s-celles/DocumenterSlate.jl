@@ -38,7 +38,17 @@ function _write_reproducible_archive!(directory::AbstractString, slug::AbstractS
     archive_path = joinpath(directory, archive_name)
     mktempdir() do temporary
         temporary_archive = joinpath(temporary, archive_name)
-        run(`tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner --mode=u=rwX,go=rX --format=ustar -czf $temporary_archive -C $directory .`)
+        open(temporary_archive, "w") do raw
+            gzip = CodecZlib.GzipCompressorStream(raw)
+            try
+                # Tar.create sorts entries and normalizes uid/gid, mtime and modes.
+                # Keeping both archive layers in-process makes this work with BSD tar
+                # on macOS and without an external tar executable on Windows.
+                Tar.create(directory, gzip; portable = true)
+            finally
+                close(gzip)
+            end
+        end
         cp(temporary_archive, archive_path)
     end
     return archive_name

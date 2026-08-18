@@ -48,6 +48,68 @@ end
     end
 end
 
+@testitem "execute_notebook: resolves markdown interpolations in notebook order" begin
+    using DocumenterSlate
+    using Test
+
+    mktempdir() do dir
+        notebook = joinpath(dir, "interpolation.jl")
+        write(notebook, """
+        try; import KaimonSlate; catch; error("no runtime"); end; KaimonSlate.standalone!(@__MODULE__; dir=@__DIR__)
+
+        #%% code id=setup
+        n = 7
+        unsafe = "<script>alert(1)</script>"
+
+        #%% md id=prose
+        @md\"\"\"
+        The value is {{ n }} and the payload is {{ unsafe }}.
+
+        Inline code stays literal: `{{ unsafe }}`.
+
+        \$\$n = {{ n }}\$\$
+        \"\"\"
+        """)
+
+        executed = execute_notebook(TextualReplayExporter(), notebook)
+        prose = executed.cells[findfirst(c -> c.cell_id == "prose", executed.cells)]
+
+        @test !occursin("{{", prose.source)
+        @test occursin("slate-interpolation\">7</span>", prose.source)
+        @test occursin("&lt;script&gt;alert(1)&lt;/script&gt;", prose.source)
+        @test count("<script>", prose.source) == 1  # only the safe inline-code example
+        @test occursin("`<script>alert(1)</script>`", prose.source)
+        @test occursin("\$\$n = 7\$\$", prose.source)
+    end
+end
+
+@testitem "execute_notebook: a failing markdown interpolation identifies its cell" begin
+    using DocumenterSlate
+    using Test
+
+    mktempdir() do dir
+        notebook = joinpath(dir, "broken-interpolation.jl")
+        write(notebook, """
+        try; import KaimonSlate; catch; error("no runtime"); end; KaimonSlate.standalone!(@__MODULE__; dir=@__DIR__)
+
+        #%% md id=broken
+        @md\"\"\"
+        {{ error("interpolation failed") }}
+        \"\"\"
+        """)
+
+        error = try
+            execute_notebook(TextualReplayExporter(), notebook)
+            nothing
+        catch caught
+            caught
+        end
+        @test error isa SlateExecutionError
+        @test error.cell_id == "broken"
+        @test occursin("interpolation failed", sprint(showerror, error))
+    end
+end
+
 @testitem "execute_notebook: broken_cell.jl with fail_on_error=true stops at the failing cell" begin
     using DocumenterSlate
     using Test

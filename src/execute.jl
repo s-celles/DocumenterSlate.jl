@@ -59,17 +59,17 @@ end
 """
     CellResult
 
-Captured outcome of executing (or, for a markdown cell, simply carrying) a single
-notebook cell (REQ-EXE-03/04/05).
+Captured outcome of executing a single notebook cell (REQ-EXE-03/04/05).
 
 # Fields
 - `cell_id::String`: the cell's persistent id (`KaimonSlate.ReportEngine.Cell.id`).
 - `kind::Symbol`: `:md` or `:code`. `KaimonSlate`'s `WEB` cell kind is treated as `:code`
   (it evaluates identically — see `widgets.jl`'s own comment on `WEB` cells).
-- `source::String`: the cell's source text, exactly as `KaimonSlate.parse_report` returns
-  it (for `:md` cells, already unwrapped from the `@md\"\"\"…\"\"\"` runnable skin — see
-  `KaimonSlate.jl/src/engine.jl`'s `_unwrap_md`). Carried through for downstream rendering
-  (M1.10) so it doesn't need to re-parse the notebook file.
+- `source::String`: the cell's source text. For `:code` cells this is exactly what
+  `KaimonSlate.parse_report` returns. For `:md` cells it is already unwrapped from the
+  `@md\"\"\"…\"\"\"` runnable skin and its `{{ expr }}` interpolations have been evaluated
+  in notebook order. Carried through for downstream rendering so it doesn't need to
+  re-parse the notebook file.
 - `flags::Set{Symbol}`: the cell's role/UI tags (`KaimonSlate.ReportEngine.Cell.flags`,
   e.g. `:title`, `:hidecode`) — also carried through for M1.10 rendering.
 - `stdout_text::String`: captured standard output produced while evaluating the cell;
@@ -227,6 +227,85 @@ function _apply_bind_override!(mod::Module, cell, binds::Dict{String,Any})
     return nothing
 end
 
+function _show_interpolation(value, mime::MIME)
+    Base.invokelatest(Base.showable, mime, value) || return nothing
+    io = IOBuffer()
+    Base.invokelatest(show, io, mime, value)
+    return String(take!(io))
+end
+
+function _html_escape(value::AbstractString)
+    return replace(value, '&' => "&amp;", '<' => "&lt;", '>' => "&gt;",
+                   '"' => "&quot;", '\'' => "&#39;")
+end
+
+function _interpolation_context(template::AbstractString, token::AbstractString)
+    location = findfirst(token, template)
+    location === nothing && return :text
+    prefix = first(location) == firstindex(template) ? "" :
+             template[firstindex(template):prevind(template, first(location))]
+    line = split(prefix, '\n')[end]
+    isodd(count(==('`'), line)) && return :code
+
+    # Count `$$` delimiters before `$` delimiters. Treating display math's two dollar
+    # characters independently would classify the inside of every `$$…$$` region as
+    # ordinary prose.
+    display_delimiters = length(collect(eachmatch(r"(?<!\\)\$\$", prefix)))
+    isodd(display_delimiters) && return :math
+    without_display = replace(prefix, r"(?<!\\)\$\$" => "")
+    inline_delimiters = length(collect(eachmatch(r"(?<!\\)\$", without_display)))
+    return isodd(inline_delimiters) ? :math : :text
+end
+
+function _markdown_interpolation(value, context::Symbol)
+    value === nothing && return ""
+    if value isa Union{AbstractString,Number,Symbol,Char,Bool}
+        text = string(value)
+        context == :math && return text
+        context == :code && return replace(text, '`' => "&#96;")
+        return "<span class=\"slate-interpolation\">" * _html_escape(text) * "</span>"
+    end
+
+    html = _show_interpolation(value, MIME("text/html"))
+    html !== nothing && return "\n\n```@raw html\n" * html * "\n```\n\n"
+
+    latex = _show_interpolation(value, MIME("text/latex"))
+    if latex !== nothing
+        if context == :math
+            stripped = strip(latex)
+            startswith(stripped, "\$\$") && endswith(stripped, "\$\$") &&
+                return stripped[3:end-2]
+            startswith(stripped, "\$") && endswith(stripped, "\$") &&
+                return stripped[2:end-1]
+        end
+        return latex
+    end
+
+    plain = something(_show_interpolation(value, MIME("text/plain")), string(value))
+    return "\n\n```\n" * plain * "\n```\n\n"
+end
+
+function _resolve_markdown_interpolations(mod::Module, cell, notebook_path::AbstractString,
+                                           cell_index::Int)
+    template, expressions = KaimonSlate.ReportEngine._md_template(cell.source)
+    resolved = template
+    for (index, expression) in enumerate(expressions)
+        value, _, error, backtrace = _eval_cell(
+            mod, (; source = expression), notebook_path,
+        )
+        if error !== nothing
+            throw(SlateExecutionError(
+                notebook_path, cell.id, cell_index, expression,
+                first(_format_backtrace_lines(something(backtrace)), 20),
+            ))
+        end
+        token = KaimonSlate.ReportEngine._interp_token(index)
+        context = _interpolation_context(resolved, token)
+        resolved = replace(resolved, token => _markdown_interpolation(value, context))
+    end
+    return resolved
+end
+
 # Runs the whole cell loop (fresh module + `standalone!` + per-cell eval + `fail_on_error`
 # handling) synchronously; `execute_notebook` wraps a call to this in a timed task.
 function _execute_cells(report, notebook_path::AbstractString, fail_on_error::Bool,
@@ -237,7 +316,8 @@ function _execute_cells(report, notebook_path::AbstractString, fail_on_error::Bo
     results = CellResult[]
     for (idx, cell) in enumerate(report.cells)
         if cell.kind == KaimonSlate.MARKDOWN
-            push!(results, CellResult(cell.id, :md, cell.source, cell.flags, "", nothing,
+            source = _resolve_markdown_interpolations(mod, cell, notebook_path, idx)
+            push!(results, CellResult(cell.id, :md, source, cell.flags, "", nothing,
                                        nothing, nothing))
             continue
         end
@@ -291,9 +371,9 @@ the `slate` hub (REQ-EXE-09, verified by construction — this file never refere
 4. Cells are evaluated **in source order** — no reactive-DAG scheduling (ADR-003's
    revision: `execute_notebook` never calls into `KaimonSlate`'s dependency/`deps`
    machinery).
-   - `:md` cells are recorded as-is; no evaluation. (`{{ expr }}` markdown interpolation
-     is out of scope here — see [`CellResult`](@ref)'s "Fields" note above and the M1.10
-     rendering task, which is a more natural home for it.)
+   - `:md` cells keep their native Markdown structure. Their `{{ expr }}` interpolations
+     are evaluated in the same fresh module at the cell's position in source order, then
+     rendered according to their MIME representation and Markdown context.
    - `:code` (and `WEB`, which evaluates identically upstream) cells are evaluated via
      `include`-equivalent semantics (`Base.include_string`): `stdout` is captured, the last
      top-level expression's value is captured, and a thrown exception is caught with its
