@@ -138,6 +138,58 @@ The prominent **Download notebook** action downloads the archive only. **Inspect
 collapsed disclosure containing verification and inactive-preview commands; expanding it performs
 no network request and executes nothing on the reader's machine.
 
+Below the actions, every notebook page prints the same four-step chain — download, verify, read,
+run — with that notebook's own filenames substituted in. The downloaded bundle's `README.md`
+repeats the identical chain, so a reader who kept only the archive still has the whole story. The
+steps are rendered from a single definition in `DocumenterSlate`, which is why the page and the
+bundle can never drift apart.
+
+## The workflow, end to end
+
+**1. Download.** [`fetch_slate_bundle`](@ref) is one call that downloads the archive over
+`https`, verifies every artifact against `SHA256SUMS`, cross-checks `PROVENANCE.toml`, and
+extracts the result. It evaluates no cell, instantiates no environment, and runs no package build
+script. It raises rather than returning an unverified bundle, so holding a [`SlateBundle`](@ref)
+means the bytes are the ones the publisher hashed:
+
+```julia
+using DocumenterSlate
+
+bundle = fetch_slate_bundle("https://example.org/docs/downloads/demo/demo.tar.gz")
+```
+
+Set [`SlateOutputOptions`](@ref)'s `canonical` to your published site's base URL and each page
+prints that first line with the notebook's real absolute URL, ready to copy. Without it the page
+falls back to the archive's site-relative path and tells the reader to copy the link from the
+**Download notebook** button.
+
+**2. Verify.** Reaching step 2 means integrity is settled; origin is not. Checksums cannot tell
+you *who* built the bundle:
+
+```julia
+bundle.provenance["repository"]
+bundle.provenance["git_sha"]
+bundle.provenance["ci_produced"]
+```
+
+Compare these against the repository you actually trust, and treat `ci_produced = false` as a
+locally built bundle. Provenance is build metadata, not a signature — anyone can serve a
+well-formed bundle. Displaying the returned `bundle` prints exactly these remaining steps.
+
+**3. Read.** `bundle.source` is plain Julia, and reading it is the only step that tells you what
+the code would actually do. KaimonSlate can serve a static view that starts no worker and
+evaluates no cell:
+
+```julia
+using KaimonSlate
+KaimonSlate.serve_notebook(bundle.source; inactive = true)
+```
+
+**4. Run deliberately.** Only after steps 2 and 3, by one of the three routes in
+[Run deliberately](@ref), ordered by host exposure. `fetch_slate_bundle` stops here on purpose:
+it will not launch the notebook for you, and no step of the chain is ever offered as a single
+chained command.
+
 !!! note "There is deliberately no one-click launch"
     DocumenterSlate never offers a "download and run this notebook from a URL" action, and this
     is a design decision rather than a missing feature. A KaimonSlate notebook is arbitrary
@@ -147,7 +199,8 @@ no network request and executes nothing on the reader's machine.
 
     Fetching a notebook over the network is supported — see
     [Download from a URL](@ref) — but only as an explicit *verify-then-run* sequence you carry
-    out yourself.
+    out yourself. [`fetch_slate_bundle`](@ref) covers the fetch-and-verify half in one call
+    precisely so the remaining half stays a separate, deliberate act.
 
 ## Verify before opening
 
@@ -181,7 +234,18 @@ digests are also checked against `PROVENANCE.toml`. An integrity failure raises 
 Fetching a bundle over the network is fine; treating the fetch itself as a launch is not. Split
 it into two steps that you control, and never chain them into a single command.
 
-First, download the archive to a local path and check what you received:
+First, download the archive to a local path and check what you received. [`fetch_slate_bundle`](@ref)
+does both, and refuses anything but `https`:
+
+```julia
+using DocumenterSlate
+
+bundle = fetch_slate_bundle("https://example.org/notebooks/downloads/demo/demo.tar.gz")
+bundle.verification.artifacts
+bundle.provenance
+```
+
+The two halves are also available separately, when you want to control the download yourself:
 
 ```julia
 using Downloads, DocumenterSlate
@@ -236,7 +300,8 @@ code harmless; review the mount and network permissions as well.
 ## Reproducibility and current scope
 
 Archives use sorted entries, a zero timestamp, normalized ownership and normalized file modes.
-`SHA256SUMS` covers every artifact except itself. HTML/PDF exports, self-contained KaimonSlate
+They are written in-process with `Tar.jl`, so every entry is a flat regular file and the build
+does not depend on a system `tar`. `SHA256SUMS` covers every artifact except itself. HTML/PDF exports, self-contained KaimonSlate
 bundles, and forge attestations remain later roadmap work. Until attestation authentication is
 implemented, `verify_slate_bundle` rejects an archive containing an attestation rather than
 presenting unverified metadata as trusted.
@@ -252,7 +317,7 @@ presenting unverified metadata as trusted.
   <a class="button is-link slate-download-button" href="downloads/hello/hello.tar.gz" download>Download notebook</a>
   <details class="slate-inspect">
     <summary>Inspect locally</summary>
-    <p><strong>Do not run the notebook before reviewing it.</strong> Verify the archive, then use KaimonSlate's inactive view, which does not start a worker or evaluate cells.</p>
+    <p><strong>Do not run the notebook before reviewing it.</strong> If you already hold the files, these two calls verify the archive and open KaimonSlate's inactive view, which starts no worker and evaluates no cell. The full download-to-run workflow is below.</p>
     <pre><code>using DocumenterSlate
 verify_slate_bundle("hello.tar.gz")</code></pre>
     <pre><code>using KaimonSlate
@@ -261,30 +326,102 @@ KaimonSlate.serve_notebook("hello.jl"; inactive = true)</code></pre>
 </div>
 ```
 
-!!! warning "Download and inspect safely"
-    This notebook is arbitrary code. Instantiating its environment may run package build scripts, and live opening may execute cells.
+!!! warning "Download, verify, read, then run — in that order"
+    This notebook is arbitrary code. Instantiating its environment may run package build scripts, and live opening may execute cells. There is deliberately no one-click launch: each step below is an act you perform after reading the previous one.
 
-    [Download source](downloads/hello/hello.jl) · [Checksums](downloads/hello/SHA256SUMS) · [Provenance](downloads/hello/PROVENANCE.toml) · [Local instructions](downloads/hello/README.md)
+    **1. Download**
 
-    Verify after downloading the directory: `sha256sum -c SHA256SUMS`.
+    One call downloads the archive, checks every artifact against `SHA256SUMS`,
+    cross-checks `PROVENANCE.toml`, and extracts the result. It evaluates no cell and
+    instantiates no environment.
 
-    Inspect without starting a worker or executing cells:
+    Copy the **Download notebook** link above — it is `downloads/hello/hello.tar.gz`
+    on this site — and fetch it:
+
+    ```julia
+    using DocumenterSlate
+    bundle = fetch_slate_bundle("https://<this site>/downloads/hello/hello.tar.gz")
+    ```
+
+    **2. Verify**
+
+    Step 1 raises rather than returning an unverified bundle, so reaching this step means
+    the bytes are intact. If you took the download directory instead, check it with the
+    checksums it carries:
+
+    ```sh
+    sha256sum -c SHA256SUMS
+    ```
+
+    What checksums cannot establish, either way, is *origin*:
+
+    ```julia
+    bundle.provenance["repository"]
+    bundle.provenance["git_sha"]
+    bundle.provenance["ci_produced"]
+    ```
+
+    Compare `repository` and `git_sha` against the repository you actually trust, and
+    treat `ci_produced = false` as a locally built bundle. Provenance is build metadata,
+    not a signature — anyone can serve a well-formed bundle.
+
+    **3. Read**
+
+    A KaimonSlate notebook is plain Julia source, and reading `hello.jl` is the only
+    step that tells you what the code would actually do. KaimonSlate can also serve a static
+    view that starts no worker and evaluates no cell:
 
     ```julia
     using KaimonSlate
-    KaimonSlate.serve_notebook("hello.jl"; inactive = true)
+    KaimonSlate.serve_notebook(bundle.source; inactive = true)
     ```
+
+    **4. Run deliberately**
+
+    Only after steps 2 and 3. Instantiating the environment may run package build scripts,
+    and opening the notebook in live mode may execute anything. The three routes below are
+    ordered by how much of your host they expose.
+
+    *Isolated container* (recommended) — keeps package installation and notebook inspection
+    off the host. The image opens the notebook in inactive mode; it evaluates no cell:
+
+    ```sh
+    podman build -t hello-inspect . && podman run --rm -it -p 8765:8765 hello-inspect
+    ```
+
+    Alternatively, open `devcontainer.json` in a compatible editor.
+
+    *Pinned host environment* — uses the published project and manifest, but runs package
+    build scripts and notebook code with your host account's permissions:
+
+    ```sh
+    julia --project=. -e 'using Pkg; Pkg.instantiate()'
+    julia --project=. -e 'using KaimonSlate; KaimonSlate.serve_notebook("hello.jl")'
+    ```
+
+    *Native application* — installing and opening the application executes code with your
+    host account's permissions:
+
+    ```sh
+    julia -e 'using Pkg; Pkg.Registry.add(Pkg.Registry.RegistrySpec(url="https://github.com/kahliburke/SlateRegistry")); Pkg.Apps.add("KaimonSlate")'
+    slate --own hello.jl
+    ```
+
+    A container reduces access to the host; it does not make untrusted code harmless. Review
+    the mount and network permissions too.
+
+    [Download source](downloads/hello/hello.jl) · [Checksums](downloads/hello/SHA256SUMS) · [Provenance](downloads/hello/PROVENANCE.toml) · [Local instructions](downloads/hello/README.md)
 
     | Artifact | SHA-256 |
     |:--|:--|
     | [`Dockerfile`](downloads/hello/Dockerfile) | `b9b5a65cc1ebe0fdc21625b77480f709e39dd2cd908218f5d4681b164c3cff1b` |
     | [`Manifest.toml`](downloads/hello/Manifest.toml) | `c56060cd8c6a3327243c2f499e3c0114587736063c6889047e9470f77b6161dc` |
-    | [`PROVENANCE.toml`](downloads/hello/PROVENANCE.toml) | `17c5bc49427c3bc461ca3f3462a6c0430c61e6ba1f73c2c061c8f28cc8ae4c08` |
+    | [`PROVENANCE.toml`](downloads/hello/PROVENANCE.toml) | `28879da31e106d2ce1cb3771a92efb0e9c0571e9759ee39fef5afbfb4a860fb5` |
     | [`Project.toml`](downloads/hello/Project.toml) | `f611f3118041332ea446aa24d11ad03397fcd156b61a97ccd4d0313008befb04` |
-    | [`README.md`](downloads/hello/README.md) | `ee8632e3e789a2dd99f19b98dedb6b56ced27e9743b9e2ddf606cedf9a07d4aa` |
+    | [`README.md`](downloads/hello/README.md) | `fad8bba783ac355a8225c1d83051a5061f0c3aa9b3feade080a9ae9656c784d5` |
     | [`devcontainer.json`](downloads/hello/devcontainer.json) | `8776646c7150dcd77690c6173db06c928226aece219289217ce264ba8622c525` |
     | [`hello.jl`](downloads/hello/hello.jl) | `3efd9ee02987f58d97d230b8355192eb521d6accc4dbf4b18a658ec674034601` |
-    | [`hello.tar.gz`](downloads/hello/hello.tar.gz) | `e48ecc3896c50144e97ecd4a68c6ac53904afb0cd82830d7e98592532fa98d2e` |
+    | [`hello.tar.gz`](downloads/hello/hello.tar.gz) | `ffc01ed1bb0313b69df9852ae20384840bfb8396bee498ed77424959f0030bff` |
 
 
 # [Hello, DocumenterSlate](@id hello-hello-documenterslate)
@@ -333,7 +470,7 @@ nice to meet you
   <a class="button is-link slate-download-button" href="downloads/hidden_code_demo/hidden_code_demo.tar.gz" download>Download notebook</a>
   <details class="slate-inspect">
     <summary>Inspect locally</summary>
-    <p><strong>Do not run the notebook before reviewing it.</strong> Verify the archive, then use KaimonSlate's inactive view, which does not start a worker or evaluate cells.</p>
+    <p><strong>Do not run the notebook before reviewing it.</strong> If you already hold the files, these two calls verify the archive and open KaimonSlate's inactive view, which starts no worker and evaluates no cell. The full download-to-run workflow is below.</p>
     <pre><code>using DocumenterSlate
 verify_slate_bundle("hidden_code_demo.tar.gz")</code></pre>
     <pre><code>using KaimonSlate
@@ -342,30 +479,102 @@ KaimonSlate.serve_notebook("hidden_code_demo.jl"; inactive = true)</code></pre>
 </div>
 ```
 
-!!! warning "Download and inspect safely"
-    This notebook is arbitrary code. Instantiating its environment may run package build scripts, and live opening may execute cells.
+!!! warning "Download, verify, read, then run — in that order"
+    This notebook is arbitrary code. Instantiating its environment may run package build scripts, and live opening may execute cells. There is deliberately no one-click launch: each step below is an act you perform after reading the previous one.
 
-    [Download source](downloads/hidden_code_demo/hidden_code_demo.jl) · [Checksums](downloads/hidden_code_demo/SHA256SUMS) · [Provenance](downloads/hidden_code_demo/PROVENANCE.toml) · [Local instructions](downloads/hidden_code_demo/README.md)
+    **1. Download**
 
-    Verify after downloading the directory: `sha256sum -c SHA256SUMS`.
+    One call downloads the archive, checks every artifact against `SHA256SUMS`,
+    cross-checks `PROVENANCE.toml`, and extracts the result. It evaluates no cell and
+    instantiates no environment.
 
-    Inspect without starting a worker or executing cells:
+    Copy the **Download notebook** link above — it is `downloads/hidden_code_demo/hidden_code_demo.tar.gz`
+    on this site — and fetch it:
+
+    ```julia
+    using DocumenterSlate
+    bundle = fetch_slate_bundle("https://<this site>/downloads/hidden_code_demo/hidden_code_demo.tar.gz")
+    ```
+
+    **2. Verify**
+
+    Step 1 raises rather than returning an unverified bundle, so reaching this step means
+    the bytes are intact. If you took the download directory instead, check it with the
+    checksums it carries:
+
+    ```sh
+    sha256sum -c SHA256SUMS
+    ```
+
+    What checksums cannot establish, either way, is *origin*:
+
+    ```julia
+    bundle.provenance["repository"]
+    bundle.provenance["git_sha"]
+    bundle.provenance["ci_produced"]
+    ```
+
+    Compare `repository` and `git_sha` against the repository you actually trust, and
+    treat `ci_produced = false` as a locally built bundle. Provenance is build metadata,
+    not a signature — anyone can serve a well-formed bundle.
+
+    **3. Read**
+
+    A KaimonSlate notebook is plain Julia source, and reading `hidden_code_demo.jl` is the only
+    step that tells you what the code would actually do. KaimonSlate can also serve a static
+    view that starts no worker and evaluates no cell:
 
     ```julia
     using KaimonSlate
-    KaimonSlate.serve_notebook("hidden_code_demo.jl"; inactive = true)
+    KaimonSlate.serve_notebook(bundle.source; inactive = true)
     ```
+
+    **4. Run deliberately**
+
+    Only after steps 2 and 3. Instantiating the environment may run package build scripts,
+    and opening the notebook in live mode may execute anything. The three routes below are
+    ordered by how much of your host they expose.
+
+    *Isolated container* (recommended) — keeps package installation and notebook inspection
+    off the host. The image opens the notebook in inactive mode; it evaluates no cell:
+
+    ```sh
+    podman build -t hidden_code_demo-inspect . && podman run --rm -it -p 8765:8765 hidden_code_demo-inspect
+    ```
+
+    Alternatively, open `devcontainer.json` in a compatible editor.
+
+    *Pinned host environment* — uses the published project and manifest, but runs package
+    build scripts and notebook code with your host account's permissions:
+
+    ```sh
+    julia --project=. -e 'using Pkg; Pkg.instantiate()'
+    julia --project=. -e 'using KaimonSlate; KaimonSlate.serve_notebook("hidden_code_demo.jl")'
+    ```
+
+    *Native application* — installing and opening the application executes code with your
+    host account's permissions:
+
+    ```sh
+    julia -e 'using Pkg; Pkg.Registry.add(Pkg.Registry.RegistrySpec(url="https://github.com/kahliburke/SlateRegistry")); Pkg.Apps.add("KaimonSlate")'
+    slate --own hidden_code_demo.jl
+    ```
+
+    A container reduces access to the host; it does not make untrusted code harmless. Review
+    the mount and network permissions too.
+
+    [Download source](downloads/hidden_code_demo/hidden_code_demo.jl) · [Checksums](downloads/hidden_code_demo/SHA256SUMS) · [Provenance](downloads/hidden_code_demo/PROVENANCE.toml) · [Local instructions](downloads/hidden_code_demo/README.md)
 
     | Artifact | SHA-256 |
     |:--|:--|
     | [`Dockerfile`](downloads/hidden_code_demo/Dockerfile) | `1214607cf95b8322d39611858f4e19572ac3c7a8a07b9d8fc723de9de02ae354` |
     | [`Manifest.toml`](downloads/hidden_code_demo/Manifest.toml) | `c56060cd8c6a3327243c2f499e3c0114587736063c6889047e9470f77b6161dc` |
-    | [`PROVENANCE.toml`](downloads/hidden_code_demo/PROVENANCE.toml) | `2154da4e586bd8abea019828d30c9be2324c51034997d46ddf8ed765ec255b21` |
+    | [`PROVENANCE.toml`](downloads/hidden_code_demo/PROVENANCE.toml) | `861c9d3805a6a2a79489a5b32bd551ca607a62cadfadcf0fd5c09b4ea4232645` |
     | [`Project.toml`](downloads/hidden_code_demo/Project.toml) | `f611f3118041332ea446aa24d11ad03397fcd156b61a97ccd4d0313008befb04` |
-    | [`README.md`](downloads/hidden_code_demo/README.md) | `db4e285402c597ed4b98e12835158a88ef203d4a9cc1cd6d848caf5a76d2c505` |
+    | [`README.md`](downloads/hidden_code_demo/README.md) | `c47bbb780b7ef690874752c8113e6ddb042d4829060e1615cbf64f993ec24798` |
     | [`devcontainer.json`](downloads/hidden_code_demo/devcontainer.json) | `64a9fc063666df831bf6f932766e9980c81d4c74d17e0d0ec867287542789ee7` |
     | [`hidden_code_demo.jl`](downloads/hidden_code_demo/hidden_code_demo.jl) | `9f2a885759e883277fef7053a9e022caeb2ce842ea313800222b46757287ad23` |
-    | [`hidden_code_demo.tar.gz`](downloads/hidden_code_demo/hidden_code_demo.tar.gz) | `0979e91c2367111d64169deb5ac9df6aea520b4e1936c8ee2cca36ebd2a20711` |
+    | [`hidden_code_demo.tar.gz`](downloads/hidden_code_demo/hidden_code_demo.tar.gz) | `d8ab382f707e125d8ef0a133486370253de62b2c468e39114aef4ed8df1eb507` |
 
 
 # [Hiding a cell's source](@id hidden_code_demo-hiding-a-cell-s-source)
@@ -566,6 +775,8 @@ SlateBuildResult
 SlatePlugin
 verify_slate_bundle
 SlateBundleVerification
+fetch_slate_bundle
+SlateBundle
 collect_build_statuses
 write_github_step_summary
 ```
