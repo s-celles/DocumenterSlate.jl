@@ -4,40 +4,107 @@
 ## Section: Home
 <!-- Source: index.md -->
 
-# DocumenterSlate.jl
+```@raw html
+---
+layout: home
 
-Publishes [KaimonSlate.jl](https://github.com/kahliburke/KaimonSlate.jl) reactive notebooks
-as native [Documenter.jl](https://github.com/JuliaDocs/Documenter.jl) pages in CI.
+hero:
+  name: DocumenterSlate.jl
+  text: Reactive notebooks, native documentation
+  tagline: Build KaimonSlate notebooks in isolated CI workers, then publish verified, reproducible output as first-class Documenter pages.
+  actions:
+    - theme: brand
+      text: Get started
+      link: "#Quick-start"
+    - theme: alt
+      text: See a real notebook
+      link: /notebooks/hello/
+  image:
+    src: /logo.svg
+    alt: A notebook rendered as a Documenter page
 
-This site is [`DocumenterSlate.jl`](https://github.com/s-celles/DocumenterSlate.jl)'s own
-documentation, built by the same two-job workflow the package ships as its reference — the
-"Notebooks" section below is real output from real KaimonSlate `.jl` files under
-[`docs/notebooks/`](https://github.com/s-celles/DocumenterSlate.jl/tree/main/docs/notebooks),
-not a mockup.
-
-See [Security](security.md) for exactly what the CI workflow guarantees and what it does
-not — read that before trusting this build model for your own package.
+features:
+  - icon: 📖
+    title: Native Documenter pages
+    details: Searchable, linkable notebook output lives beside the rest of your package documentation—not in an iframe or a separate app.
+    link: /notebooks/hello/
+  - icon: 🛡️
+    title: Split, safer CI
+    details: Execute notebooks without deployment secrets, then build and deploy from the resulting cache in a separate job.
+    link: /security/
+  - icon: 📦
+    title: Reproducible environments
+    details: Every cache miss runs in its own Julia process with the notebook's adjacent project activated and an explicit environment allowlist.
+  - icon: ✓
+    title: Verifiable downloads
+    details: Publish source, environment, checksums, and provenance so readers can verify a bundle before inspecting or running it.
+    link: /distribution/
+  - icon: 🧩
+    title: Pages or embeds
+    details: Add every notebook to navigation automatically, or place one inside an authored guide with the @slate directive.
+    link: "#Embed-a-notebook"
+  - icon: ⚡
+    title: Cache-aware builds
+    details: Rebuild only when notebook inputs change; the deploy job is forbidden from silently executing a cache miss.
+---
+```
 
 ## Quick start
+
+DocumenterSlate is not yet registered. Add it directly from GitHub to the environment that
+builds your documentation:
+
+```julia
+import Pkg
+Pkg.add(url = "https://github.com/s-celles/DocumenterSlate.jl")
+```
+
+Render the notebooks before calling `makedocs`:
 
 ```julia
 using Documenter, DocumenterSlate
 
 result = build_slates(
-    SlateBuildOptions(; source = joinpath(@__DIR__, "..", "notebooks"),
-                       output = joinpath(@__DIR__, "src", "notebooks"),
-                       worker_environment = Dict("LANG" => "C.UTF-8")),
+    SlateBuildOptions(;
+        source = joinpath(@__DIR__, "notebooks"),
+        output = joinpath(@__DIR__, "src", "notebooks"),
+        worker_environment = Dict("LANG" => "C.UTF-8"),
+    ),
 )
 
-makedocs(; sitename = "MyPkg.jl", plugins = [SlatePlugin(result)],
-         pages = ["Home" => "index.md", "Notebooks" => result.pages])
+makedocs(;
+    sitename = "MyPkg.jl",
+    plugins = [SlatePlugin(result)],
+    pages = [
+        "Home" => "index.md",
+        "Notebooks" => result.pages,
+    ],
+)
 ```
 
 Each cache miss runs in a separate Julia process with the notebook's adjacent project activated.
 The parent environment is denied by default; `worker_environment` is the explicit allowlist.
 
-To embed a pre-rendered notebook inside an authored page instead of adding it as a standalone page,
-install `SlatePlugin(result)` as above and use:
+## How the build stays predictable
+
+1. `build_slates` discovers notebooks and hashes every relevant input.
+2. A render job executes cache misses without documentation deployment credentials.
+3. A separate deploy job consumes that exact cache with `execution = :never` and publishes the
+   generated Markdown, assets, and downloadable bundles through Documenter.
+
+This documentation site uses that two-job workflow itself. The [Notebooks](notebooks/hello.md)
+section is generated from the real KaimonSlate sources in this repository, not from fixtures or
+hand-written output.
+
+!!! warning "Treat notebooks as code"
+    Notebook cells are arbitrary Julia code. Read the [security model](security.md) before using
+    the reference workflow for your own package, and verify downloaded bundles before opening
+    them in a live runtime.
+
+## Embed a notebook
+
+Install `SlatePlugin(result)` as above, then place a pre-rendered notebook inside an authored
+page:
 
 ````markdown
 ```@slate
@@ -45,38 +112,15 @@ notebook = "analysis.jl"
 ```
 ````
 
-Use `@slate-download` with the same `notebook = "analysis.jl"` configuration when the authored
-page should contain only the download and inactive-inspection panel.
+Use `@slate-download` with the same `notebook = "analysis.jl"` configuration when the page should
+contain only the download and inactive-inspection panel.
 
-## Public API
+## Explore further
 
-```@docs
-DocumenterSlate
-build_slates
-SlateBuildOptions
-SlateOutputOptions
-discover_notebooks
-resolve_notebook_project
-NotebookProjectResolution
-resolve_notebook_meta
-NotebookMeta
-AbstractSlateExporter
-TextualReplayExporter
-execute_notebook
-ExecutedNotebook
-CellResult
-SlateExecutionError
-SlateExecutionTimeoutError
-cell_to_markdown
-extract_assets!
-build_pages
-SlateBuildResult
-SlatePlugin
-verify_slate_bundle
-SlateBundleVerification
-collect_build_statuses
-write_github_step_summary
-```
+- [See a generated notebook](notebooks/hello.md) to inspect the rendered result.
+- [Understand downloads and verification](distribution.md) before sharing bundles.
+- [Read the security model](security.md) before adopting the CI workflow.
+- Use the [API reference](api.md) when you need the exact configuration surface.
 
 
 ---
@@ -93,6 +137,17 @@ and local instructions. The source bytes are copied unchanged.
 The prominent **Download notebook** action downloads the archive only. **Inspect locally** is a
 collapsed disclosure containing verification and inactive-preview commands; expanding it performs
 no network request and executes nothing on the reader's machine.
+
+!!! note "There is deliberately no one-click launch"
+    DocumenterSlate never offers a "download and run this notebook from a URL" action, and this
+    is a design decision rather than a missing feature. A KaimonSlate notebook is arbitrary
+    Julia code: instantiating its environment can run package build scripts, and opening it in
+    live mode can execute anything. The documentation therefore never emits a custom URL scheme,
+    never contacts a local server, and never suggests piping a remote download into Julia.
+
+    Fetching a notebook over the network is supported — see
+    [Download from a URL](@ref) — but only as an explicit *verify-then-run* sequence you carry
+    out yourself.
 
 ## Verify before opening
 
@@ -120,6 +175,38 @@ result.provenance
 Verification rejects missing, extra, modified, duplicated, or dangerously named files. For an
 archive, links and nested paths are rejected before extraction. The source and optional manifest
 digests are also checked against `PROVENANCE.toml`. An integrity failure raises `ArgumentError`.
+
+## Download from a URL
+
+Fetching a bundle over the network is fine; treating the fetch itself as a launch is not. Split
+it into two steps that you control, and never chain them into a single command.
+
+First, download the archive to a local path and check what you received:
+
+```julia
+using Downloads, DocumenterSlate
+
+archive = Downloads.download("https://example.org/notebooks/downloads/demo/demo.tar.gz",
+                             joinpath(mktempdir(), "demo.tar.gz"))
+result = verify_slate_bundle(archive)
+result.artifacts
+result.provenance
+```
+
+[`verify_slate_bundle`](@ref) reads the archive's entries and rejects links, nested paths, and
+non-regular files *before* extracting anything, then checks every artifact against `SHA256SUMS`
+and cross-checks the notebook source and optional manifest against `PROVENANCE.toml`. It never
+evaluates notebook cells and never instantiates the environment, so it is safe to run on a bundle
+you have not yet reviewed. An integrity or structural failure raises `ArgumentError`.
+
+Only after verification succeeds, and after reading the `.jl` source, extract the archive and use
+one of the routes in [Run deliberately](@ref) — the container route first.
+
+`result.provenance` tells you where the bundle claims to come from, not that the claim is true:
+it is build metadata, not a signature. Compare `repository` and `git_sha` against the repository
+you actually trust, and treat `ci_produced = false` as a locally built bundle. Until forge
+attestations are authenticated, a URL is not evidence of origin — anyone can serve a well-formed
+bundle.
 
 ## Inspect without evaluating cells
 
@@ -192,12 +279,12 @@ KaimonSlate.serve_notebook("hello.jl"; inactive = true)</code></pre>
     |:--|:--|
     | [`Dockerfile`](downloads/hello/Dockerfile) | `b9b5a65cc1ebe0fdc21625b77480f709e39dd2cd908218f5d4681b164c3cff1b` |
     | [`Manifest.toml`](downloads/hello/Manifest.toml) | `c56060cd8c6a3327243c2f499e3c0114587736063c6889047e9470f77b6161dc` |
-    | [`PROVENANCE.toml`](downloads/hello/PROVENANCE.toml) | `ee3350ab1fba527979a780b4f150e2dc642c3aec8047294ff0044ac76aa25f14` |
+    | [`PROVENANCE.toml`](downloads/hello/PROVENANCE.toml) | `17c5bc49427c3bc461ca3f3462a6c0430c61e6ba1f73c2c061c8f28cc8ae4c08` |
     | [`Project.toml`](downloads/hello/Project.toml) | `f611f3118041332ea446aa24d11ad03397fcd156b61a97ccd4d0313008befb04` |
     | [`README.md`](downloads/hello/README.md) | `ee8632e3e789a2dd99f19b98dedb6b56ced27e9743b9e2ddf606cedf9a07d4aa` |
     | [`devcontainer.json`](downloads/hello/devcontainer.json) | `8776646c7150dcd77690c6173db06c928226aece219289217ce264ba8622c525` |
     | [`hello.jl`](downloads/hello/hello.jl) | `3efd9ee02987f58d97d230b8355192eb521d6accc4dbf4b18a658ec674034601` |
-    | [`hello.tar.gz`](downloads/hello/hello.tar.gz) | `dbc84d47c50f31e33379225ef783c9e359f061de8027d6ae6c6cf7bfa78d2434` |
+    | [`hello.tar.gz`](downloads/hello/hello.tar.gz) | `e48ecc3896c50144e97ecd4a68c6ac53904afb0cd82830d7e98592532fa98d2e` |
 
 
 # [Hello, DocumenterSlate](@id hello-hello-documenterslate)
@@ -273,12 +360,12 @@ KaimonSlate.serve_notebook("hidden_code_demo.jl"; inactive = true)</code></pre>
     |:--|:--|
     | [`Dockerfile`](downloads/hidden_code_demo/Dockerfile) | `1214607cf95b8322d39611858f4e19572ac3c7a8a07b9d8fc723de9de02ae354` |
     | [`Manifest.toml`](downloads/hidden_code_demo/Manifest.toml) | `c56060cd8c6a3327243c2f499e3c0114587736063c6889047e9470f77b6161dc` |
-    | [`PROVENANCE.toml`](downloads/hidden_code_demo/PROVENANCE.toml) | `c6fbab10a78148724b5a16847cf7c4c24d816673a1dfc0f5caaf8a6a0765c6bd` |
+    | [`PROVENANCE.toml`](downloads/hidden_code_demo/PROVENANCE.toml) | `2154da4e586bd8abea019828d30c9be2324c51034997d46ddf8ed765ec255b21` |
     | [`Project.toml`](downloads/hidden_code_demo/Project.toml) | `f611f3118041332ea446aa24d11ad03397fcd156b61a97ccd4d0313008befb04` |
     | [`README.md`](downloads/hidden_code_demo/README.md) | `db4e285402c597ed4b98e12835158a88ef203d4a9cc1cd6d848caf5a76d2c505` |
     | [`devcontainer.json`](downloads/hidden_code_demo/devcontainer.json) | `64a9fc063666df831bf6f932766e9980c81d4c74d17e0d0ec867287542789ee7` |
     | [`hidden_code_demo.jl`](downloads/hidden_code_demo/hidden_code_demo.jl) | `9f2a885759e883277fef7053a9e022caeb2ce842ea313800222b46757287ad23` |
-    | [`hidden_code_demo.tar.gz`](downloads/hidden_code_demo/hidden_code_demo.tar.gz) | `602b8b744da6a661417a2985a63490ce41ecf6932a5d72ef586e780ca38c21c9` |
+    | [`hidden_code_demo.tar.gz`](downloads/hidden_code_demo/hidden_code_demo.tar.gz) | `0979e91c2367111d64169deb5ac9df6aea520b4e1936c8ee2cca36ebd2a20711` |
 
 
 # [Hiding a cell's source](@id hidden_code_demo-hiding-a-cell-s-source)
@@ -424,6 +511,21 @@ for future exporters that can honor region placement.
   `.md` source file — that is authored content, not derived output, and carries the same
   trust level as the rest of your documentation source.
 
+## Distribution and download
+
+The sections above cover the *build* side — what happens inside CI, and what the cache is and is
+not trusted for. The *download* side has its own posture, documented in full under
+[Download and inspect notebooks](@ref): DocumenterSlate deliberately offers no one-click
+"run this notebook from a URL" action. It emits no custom URL scheme, contacts no local server,
+and never suggests piping a remote download into Julia.
+
+Fetching over the network is supported as an explicit two-step sequence — download to a local
+path, then [`verify_slate_bundle`](@ref), which checks an exhaustive `SHA256SUMS` and rejects
+links, nested paths, and non-regular archive entries before extracting, without evaluating a
+single cell. What that buys you is integrity, not origin: `PROVENANCE.toml` is build metadata,
+not a signature, and an attestation-bearing bundle is rejected outright rather than presented as
+trusted (REQ-TRUST-03 remains open).
+
 ## What none of this proves
 
 An attestation or a clean cache lookup proves an artifact's *origin* — that it came from this
@@ -431,6 +533,42 @@ workflow, at this commit. It proves nothing about whether the notebook itself is
 well-behaved. A malicious notebook authored and merged by a maintainer remains malicious
 however cleanly it was built (spec.md §11.5's own point, restated here for the CI/build-cache
 context rather than the download/distribution context it was originally written for).
+
+
+---
+
+## Section: API Reference
+<!-- Source: api.md -->
+
+# API reference
+
+```@docs
+DocumenterSlate
+build_slates
+SlateBuildOptions
+SlateOutputOptions
+discover_notebooks
+resolve_notebook_project
+NotebookProjectResolution
+resolve_notebook_meta
+NotebookMeta
+AbstractSlateExporter
+TextualReplayExporter
+execute_notebook
+ExecutedNotebook
+CellResult
+SlateExecutionError
+SlateExecutionTimeoutError
+cell_to_markdown
+extract_assets!
+build_pages
+SlateBuildResult
+SlatePlugin
+verify_slate_bundle
+SlateBundleVerification
+collect_build_statuses
+write_github_step_summary
+```
 
 
 ---
