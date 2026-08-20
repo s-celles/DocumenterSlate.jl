@@ -78,3 +78,33 @@ end
     result = build_pages(Tuple{String,NotebookMeta}[])
     @test result.pages == Pair{String,String}[]
 end
+
+@testitem "generated pages rewrite links to discovered notebook sources" begin
+    using DocumenterSlate
+    using Test
+
+    mktempdir() do dir
+        source = joinpath(dir, "notebooks")
+        output = joinpath(dir, "pages")
+        mkpath(source)
+        mkpath(output)
+        first_notebook = joinpath(source, "first.jl")
+        second_notebook = joinpath(source, "second.jl")
+        write(first_notebook, "")
+        write(second_notebook, "")
+        write(joinpath(output, "first.md"),
+              "[Second](second.jl) [section](./second.jl#part) " *
+              "[source](downloads/first/first.jl)")
+        write(joinpath(output, "second.md"), "[First](first.jl)")
+
+        DocumenterSlate._rewrite_notebook_links!(
+            output, [first_notebook, second_notebook],
+        )
+
+        first_page = read(joinpath(output, "first.md"), String)
+        @test occursin("[Second](second.md)", first_page)
+        @test occursin("[section](second.md#part)", first_page)
+        @test occursin("[source](downloads/first/first.jl)", first_page)
+        @test read(joinpath(output, "second.md"), String) == "[First](first.md)"
+    end
+end

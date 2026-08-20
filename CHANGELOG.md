@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   notebook cells (including Makie and GeometryBasics) are visible to the renderer.
 - Code-cell values now honor explicit HTML and LaTeX MIME displays before falling back to
   fenced plain text, producing native tables instead of internal struct representations.
+- Relative links between discovered notebook sources are rewritten from `.jl` to their
+  generated `.md` pages without changing links to downloadable source bundles.
 
 ### Added
 
