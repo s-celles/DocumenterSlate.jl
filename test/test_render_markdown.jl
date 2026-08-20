@@ -12,6 +12,23 @@
     @test !occursin("<a id=", md)
 end
 
+@testitem "cell_to_markdown: converts Slate dollar math to Documenter math" begin
+    using DocumenterSlate
+    using Test
+
+    cell = CellResult(
+        "math", :md,
+        raw"Inline $a_i+b$ and display $$\int_0^1 x^2\,dx$$.",
+        Set{Symbol}(), "", nothing, nothing, nothing,
+    )
+    rendered = cell_to_markdown(cell)
+
+    @test occursin(raw"Inline ``a_i+b``", rendered)
+    @test occursin("```math\n\\int_0^1 x^2\\,dx\n```", rendered)
+    @test !occursin(raw"$a_i+b$", rendered)
+    @test !occursin(raw"$$", rendered)
+end
+
 @testitem "cell_to_markdown: hidecode-tagged code cell omits source, keeps output" begin
     using DocumenterSlate
     using Test

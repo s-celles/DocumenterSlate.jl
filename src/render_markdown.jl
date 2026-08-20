@@ -2,6 +2,8 @@
 # trailing closing `#`s and whitespace stripped. Used to inject a per-notebook-prefixed
 # anchor before each heading (REQ-REN-09) without altering the visible heading text.
 const _ATX_HEADING_RE = r"^(#{1,6})[ \t]+(.+?)[ \t]*#*$"
+const _SLATE_DISPLAY_MATH_RE = r"\$\$(.+?)\$\$"s
+const _SLATE_INLINE_MATH_RE = r"\$(?!\s)([^\$\n]+?)(?<!\s)\$"
 
 # Lowercase, non-alphanumeric runs collapsed to a single `-`, leading/trailing `-` trimmed.
 # Deliberately simple (no transliteration/unicode folding) — good enough for the ASCII
@@ -36,6 +38,24 @@ function _anchor_annotate_headings(text::AbstractString, anchor_prefix::Abstract
     return join(out, '\n')
 end
 
+function _documenter_math(text::AbstractString)
+    displays = String[]
+    stashed = replace(text, _SLATE_DISPLAY_MATH_RE => function (matched)
+        parsed = something(match(_SLATE_DISPLAY_MATH_RE, matched))
+        push!(displays, String(something(parsed.captures[1])))
+        return "xdocumenterslatedisplayx" * string(length(displays); pad = 5) * "x"
+    end)
+    converted = replace(stashed, _SLATE_INLINE_MATH_RE => function (matched)
+        parsed = something(match(_SLATE_INLINE_MATH_RE, matched))
+        return "``" * String(something(parsed.captures[1])) * "``"
+    end)
+    for (index, body) in enumerate(displays)
+        token = "xdocumenterslatedisplayx" * string(index; pad = 5) * "x"
+        converted = replace(converted, token => "\n\n```math\n" * strip(body) * "\n```\n\n")
+    end
+    return converted
+end
+
 # `showerror`-formatted single-line-ish summary of a caught exception, for the admonition
 # body — full `.backtrace` (already captured on `CellResult`) is appended below it.
 _error_headline(err::Exception) = sprint(showerror, err)
@@ -63,9 +83,10 @@ end
 Convert one executed cell (REQ-REN-01) into a Documenter-native Markdown fragment.
 
 # Markdown cells (`cell.kind == :md`)
-Returned as-is (`KaimonSlate.parse_report` already unwraps the `@md\"\"\"…\"\"\"` runnable
-skin, so `cell.source` is already plain Markdown — REQ-REN-02), except each ATX heading
-is rewritten with Documenter's `[title](@id anchor)` syntax, prefixed with
+`KaimonSlate.parse_report` already unwraps the `@md\"\"\"…\"\"\"` runnable skin, so
+`cell.source` is already plain Markdown (REQ-REN-02). Slate's `\$…\$` and `\$\$…\$\$` math
+delimiters are converted to Documenter's native double-backtick and `math`-fence syntax.
+Each ATX heading is rewritten with Documenter's `[title](@id anchor)` syntax, prefixed with
 `anchor_prefix` (REQ-REN-09: guarantees uniqueness across notebook pages built into the
 same site, since Documenter's own heading-derived anchors are only guaranteed unique
 within a single generated page). `execute_notebook` has already evaluated any `{{ … }}`
@@ -99,15 +120,15 @@ note makes the same recommendation).
   value (e.g. ending in a bare `using X` or `nothing`) and no `asset_path` produces no
   output block at all.
 
-Preserves literal `\$…\$`/`\$\$…\$\$` math untouched in both branches (REQ-REN-06) — no
-rewriting is performed, so whatever KaTeX/MathJax3 syntax the notebook author used passes
-straight through.
+Preserves the TeX body of `\$…\$`/`\$\$…\$\$` math byte-for-byte while adapting only its
+delimiters for Documenter (REQ-REN-06). Dollar text inside code-cell source and fenced
+runtime output is untouched.
 """
 function cell_to_markdown(cell::CellResult; show_code::Bool = true,
                            anchor_prefix::AbstractString = "",
                            asset_path::Union{Nothing,AbstractString} = nothing)
     if cell.kind == :md
-        return _anchor_annotate_headings(cell.source, anchor_prefix)
+        return _anchor_annotate_headings(_documenter_math(cell.source), anchor_prefix)
     end
 
     parts = String[]
