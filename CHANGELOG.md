@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fenced plain text, producing native tables instead of internal struct representations.
 - Relative links between discovered notebook sources are rewritten from `.jl` to their
   generated `.md` pages without changing links to downloadable source bundles.
+- Slate `$…$` and `$$…$$` mathematics are translated to Documenter's native inline and
+  display-math syntax, preserving TeX instead of emitting stray dollar paragraphs.
 
 ### Added
 
