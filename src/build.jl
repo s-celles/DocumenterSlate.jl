@@ -13,6 +13,32 @@ function _write_output_from_cache(output_dir::AbstractString, slug::AbstractStri
     return nothing
 end
 
+function _rewrite_notebook_links!(output_dir::AbstractString,
+                                  notebook_paths::AbstractVector{<:AbstractString})
+    for source_path in notebook_paths
+        slug = splitext(basename(source_path))[1]
+        page_path = joinpath(output_dir, slug * ".md")
+        isfile(page_path) || continue
+        page = read(page_path, String)
+
+        for target_path in notebook_paths
+            relative_source = replace(relpath(target_path, dirname(source_path)), '\\' => '/')
+            relative_page = splitext(basename(target_path))[1] * ".md"
+            candidates = startswith(relative_source, "./") ? (relative_source,) :
+                         (relative_source, "./" * relative_source)
+            for candidate in candidates, boundary in (')', '#', '?', ' ')
+                page = replace(page,
+                    "](" * candidate * string(boundary) =>
+                    "](" * relative_page * string(boundary),
+                )
+            end
+        end
+
+        write(page_path, page)
+    end
+    return nothing
+end
+
 # Return the distinct `region=<name>` tags declared by a notebook. Use KaimonSlate's parser
 # instead of matching source text so comments and strings containing `region=` cannot trigger
 # the security gate accidentally. This is an authorization check only: the current
@@ -317,6 +343,12 @@ function build_slates(options::SlateBuildOptions,
             _build_one_notebook(path, meta, exporter, options, output_options)
         end
     end
+
+    # Notebook authors naturally link to another runnable source as `other.jl`. The
+    # generated Documenter site contains `other.md`, while the downloadable source must
+    # remain unchanged. Rewrite only destinations that resolve to another discovered,
+    # non-skipped notebook, after cache materialization and page decoration.
+    _rewrite_notebook_links!(options.output, first.(to_build))
 
     pages = build_pages(entries)
     return SlateBuildResult(pages.pages, options.output)
